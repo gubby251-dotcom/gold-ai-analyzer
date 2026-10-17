@@ -1,423 +1,448 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#080a0e">
-<title>SEBU DOLLAR AI | Gold Analyzer</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08090c">
+<title>SEBU DOLLAR AI — GOLD INSTITUTIONAL ANALYZER</title>
 <style>
-:root{
-  --bg:#080a0e;--panel:#10141b;--panel2:#171c25;
-  --gold:#e9bd55;--gold2:#fff0b0;--text:#f4f5f7;
-  --muted:#8993a3;--green:#20d890;--red:#ff596b;
-  --blue:#55c7ff;--border:#303541;
-}
+:root{--bg:#08090c;--panel:#111319;--panel2:#171a22;--gold:#d8b45a;--gold2:#f1d78a;--text:#f3f3f5;--muted:#9ba1ae;--green:#28d89a;--red:#ff6474;--line:#292d37;--blue:#70a8ff}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);
-font:14px Arial,sans-serif;padding-bottom:82px}
-header{position:sticky;top:0;z-index:5;background:#090b10;
-border-bottom:1px solid #514326;padding:15px 14px}
-.brand{display:flex;align-items:center;gap:11px}
-.crown{font-size:32px;color:var(--gold)}
-.brand h1{margin:0;font-size:17px;color:var(--gold2);letter-spacing:1px}
-.brand small{color:var(--muted);font-size:10px;letter-spacing:1.4px}
-.status{margin-left:auto;border:1px solid #695329;color:var(--gold);
-border-radius:20px;padding:6px 8px;font-size:10px}
-main{padding:12px;max-width:850px;margin:auto}
-.card{background:linear-gradient(145deg,#141922,#0d1016);
-border:1px solid var(--border);border-radius:13px;padding:14px;
-margin-bottom:12px;box-shadow:0 5px 20px #0005}
-.heading{display:flex;align-items:center;justify-content:space-between;
-gap:8px;margin-bottom:13px}
-h2{font-size:13px;letter-spacing:.7px;margin:0;color:var(--gold)}
-h3{font-size:12px;margin:0}
-.muted{color:var(--muted);font-size:11px}
-.price{font-size:28px;font-weight:700;color:var(--gold2);margin:10px 0 5px}
-.pill{font-size:10px;padding:5px 8px;border-radius:5px;
-background:#202630;color:#cbd2df;display:inline-block}
-.gold{color:var(--gold)}.green{color:var(--green)}
-.red{color:var(--red)}.blue{color:var(--blue)}
-.warning{color:#ffcc70}
-.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+body{margin:0;background:radial-gradient(ellipse at top,#17171b 0,#08090c 52%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:17px 16px 13px;border-bottom:1px solid #302817;background:#0b0c10;position:sticky;top:0;z-index:3}
+.brand{color:var(--gold2);font-size:17px;font-weight:900;letter-spacing:1px}
+.sub{color:var(--muted);font-size:10px;letter-spacing:2px;margin-top:3px}
+.status{margin-top:11px;display:flex;gap:7px;align-items:center;font-size:11px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:#737987}
+.dot.live{background:var(--green);box-shadow:0 0 10px #28d89a88}
+.dot.bad{background:var(--red)}
+main{max-width:900px;margin:auto;padding:13px;display:grid;gap:12px}
+.card{background:linear-gradient(145deg,#15171d,#0f1116);border:1px solid var(--line);border-radius:15px;padding:14px;box-shadow:0 8px 24px #0003}
+.eyebrow{font-size:10px;color:var(--gold);letter-spacing:1.5px;font-weight:800}
+.priceRow{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:8px}
+.price{font-size:clamp(27px,7vw,42px);font-weight:850;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.change{font-size:12px;color:var(--muted);text-align:right}
+.pill{border:1px solid #4c4022;color:var(--gold2);border-radius:999px;padding:5px 9px;font-size:10px;white-space:nowrap}
+.controls{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.tf{background:#1b1e26;border:1px solid #303541;border-radius:8px;color:#c8cbd2;padding:8px 11px;font-weight:800;font-size:12px}
+.tf.active{background:#3a2f16;border-color:var(--gold);color:var(--gold2)}
+canvas{width:100%;height:230px;display:block;margin-top:12px;background:#0b0d12;border:1px solid #222630;border-radius:9px}
+.chartFoot{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;margin-top:8px}
+.sectionTitle{font-weight:850;font-size:13px;letter-spacing:.5px;margin-bottom:11px}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.stat{padding:11px;border:1px solid var(--border);border-radius:9px;background:#0a0d12}
-.stat b{display:block;font-size:15px;margin-top:8px}
-.tfbar{display:flex;gap:6px;overflow-x:auto;margin:12px 0}
-button{cursor:pointer;font:inherit}
-.tf{flex:1;min-width:45px;border:1px solid #343b48;border-radius:7px;
-padding:10px 5px;background:#151a23;color:#cbd2df}
-.tf.active{background:linear-gradient(135deg,#f6d879,#b98225);
-color:#17120a;font-weight:bold}
-.chartwrap{width:100%;overflow:hidden}
-canvas{width:100%;height:245px;display:block}
-.table{width:100%;border-collapse:collapse;font-size:12px}
-.table td,.table th{padding:10px 5px;text-align:left;
-border-bottom:1px solid #252b35}
-.table th{color:var(--muted);font-weight:normal}
-.tag{padding:4px 6px;border-radius:5px;font-size:10px;
-background:#202630;display:inline-block}
-.zone{border:1px solid var(--border);border-radius:8px;
-padding:11px;margin-top:8px}
-.zone strong{display:block;margin-bottom:6px}
-.progress{height:5px;background:#252b35;border-radius:8px;overflow:hidden}
-.progress div{height:100%;width:0;background:var(--gold)}
-button.primary{width:100%;border:0;border-radius:8px;padding:13px;
-background:linear-gradient(100deg,#ffe5a0,#c68d2f);color:#17120a;
-font-weight:bold;margin-top:10px}
-button.secondary{border:1px solid var(--border);border-radius:7px;
-padding:9px;background:#171c25;color:var(--text)}
-nav{position:fixed;bottom:0;left:0;right:0;z-index:10;
-background:#0d1016;border-top:1px solid var(--border);
-display:flex;justify-content:space-around;padding:11px 2px max(10px,env(safe-area-inset-bottom))}
-nav a{text-align:center;color:var(--muted);text-decoration:none;font-size:10px}
-nav a span{display:block;font-size:19px;margin-bottom:4px}
-.notice{padding:10px;border-radius:8px;background:#2a2112;
-border:1px solid #6c5124;color:#f2d18b;font-size:11px;line-height:1.6}
-footer{text-align:center;padding:12px;color:var(--muted);font-size:10px}
-@media(min-width:600px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.metric{background:#0b0d12;border:1px solid #272b35;border-radius:10px;padding:11px}
+.metric .k{font-size:10px;color:var(--muted)}
+.metric .v{font-size:14px;font-weight:800;margin-top:5px}
+.green{color:var(--green)}.red{color:var(--red)}.gold{color:var(--gold2)}.muted{color:var(--muted)}
+.zone{padding:10px;border:1px solid #2b303b;border-radius:9px;margin-top:8px;display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.zone small{display:block;color:var(--muted);margin-top:4px}
+.badge{font-size:10px;padding:4px 7px;border-radius:6px;height:max-content}
+.fresh{color:var(--green);background:#123328}
+.touched{color:#ffbd65;background:#3b2a16}
+.none{font-size:12px;color:var(--muted);padding:12px;border:1px dashed #343945;border-radius:9px}
+.warning{border-color:#674e21;color:#f4d994;background:#201a0d;font-size:11px;line-height:1.55}
+.footer{text-align:center;color:#666d7b;font-size:10px;padding:8px 0 22px}
+button{cursor:pointer}
+a{color:var(--gold2)}
+@media(min-width:700px){
+ main{grid-template-columns:1.15fr .85fr}
+ .wide{grid-column:1/-1}
+ .grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand">
-    <div class="crown">♛</div>
-    <div><h1>SEBU DOLLAR AI</h1>
-    <small>GOLD INSTITUTIONAL ANALYZER</small></div>
-    <div class="status">● DEMO MODE</div>
+  <div class="brand">♛ SEBU DOLLAR AI</div>
+  <div class="sub">GOLD INSTITUTIONAL ANALYZER · XAU/USD</div>
+  <div class="status">
+    <span id="dot" class="dot"></span>
+    <span id="status">MENYAMBUNG KE BIQUOTE…</span>
+    <span id="age" style="margin-left:auto">Menunggu data</span>
   </div>
 </header>
 
 <main>
-  <div class="card">
-    <div class="row">
-      <div><span class="gold">◆</span> <b>XAU/USD</b>
-      <div class="muted">Gold Spot · Simulasi lokal</div></div>
-      <span class="pill">DATA DEMO</span>
+  <section class="card">
+    <div class="eyebrow">HARGA XAU/USD · BIQUOTE</div>
+    <div class="priceRow">
+      <div>
+        <div id="price" class="price">—</div>
+        <div id="source" class="muted" style="font-size:10px;margin-top:4px">Harga belum diterima</div>
+      </div>
+      <div>
+        <div id="market" class="pill">MEMERIKSA PASAR</div>
+        <div id="daychange" class="change" style="margin-top:8px">—</div>
+      </div>
     </div>
-    <div class="price" id="price">--</div>
-    <div class="muted">Harga simulasi — BUKAN harga pasar live</div>
-    <div class="tfbar" id="tfbar">
-      <button class="tf" data-tf="M1">M1</button>
-      <button class="tf" data-tf="M5">M5</button>
-      <button class="tf" data-tf="M15">M15</button>
-      <button class="tf active" data-tf="M30">M30</button>
-      <button class="tf" data-tf="H1">H1</button>
-      <button class="tf" data-tf="H4">H4</button>
-    </div>
-    <div class="chartwrap"><canvas id="chart"></canvas></div>
-    <div class="row muted"><span id="charttf">Timeframe M30</span>
-    <span id="candlecount">0 candle</span></div>
-  </div>
 
-  <div class="card">
-    <div class="heading"><h2>AI MARKET OVERVIEW</h2>
-    <span class="pill">RULE ENGINE</span></div>
+    <div class="controls" id="tfs">
+      <button class="tf" data-tf="1m">M1 · OB</button>
+      <button class="tf" data-tf="5m">M5</button>
+      <button class="tf" data-tf="15m">M15</button>
+      <button class="tf active" data-tf="30m">M30</button>
+      <button class="tf" data-tf="1h">H1</button>
+      <button class="tf" data-tf="4h">H4</button>
+    </div>
+
+    <canvas id="chart" aria-label="Grafik candle XAUUSD"></canvas>
+    <div class="chartFoot">
+      <span id="barcount">Candle tertutup: —</span>
+      <span id="lastbar">Waktu candle: —</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="sectionTitle">ANALISA STRUKTUR PASAR</div>
     <div class="grid">
-      <div class="stat"><span class="muted">Bias Struktur</span>
-      <b id="bias">Menghitung...</b></div>
-      <div class="stat"><span class="muted">Market Structure</span>
-      <b id="structure">--</b></div>
-      <div class="stat"><span class="muted">BOS / CHOCH</span>
-      <b id="break">--</b></div>
-      <div class="stat"><span class="muted">Pivot terakhir</span>
-      <b id="pivot">--</b></div>
+      <div class="metric">
+        <div class="k">ARAH TIMEFRAME</div>
+        <div class="v" id="trend">MENUNGGU DATA</div>
+      </div>
+      <div class="metric">
+        <div class="k">MARKET STRUCTURE</div>
+        <div class="v" id="structure">—</div>
+      </div>
+      <div class="metric">
+        <div class="k">KONFIRMASI</div>
+        <div class="v gold" id="confirm">BELUM VALID</div>
+      </div>
     </div>
-    <div class="zone">
-      <div class="row"><strong>Analisa teknikal</strong>
-      <span class="pill" id="rsiLabel">RSI --</span></div>
-      <div class="muted" id="explanation">Menunggu analisa...</div>
-    </div>
-  </div>
+    <p class="muted" id="analysisnote" style="font-size:11px;line-height:1.6;margin-bottom:0">
+      Analisis akan aktif setelah candle asli BiQuote berhasil dimuat.
+    </p>
+  </section>
 
-  <div class="card">
-    <div class="heading"><h2>MULTI-TIMEFRAME ALIGNMENT</h2>
-    <span class="muted">M30 / M15 / M5 / M1</span></div>
-    <table class="table">
-      <thead><tr><th>TF</th><th>Struktur</th><th>OB</th><th>Status</th></tr></thead>
-      <tbody id="mtf"></tbody>
-    </table>
-    <div class="notice" style="margin-top:10px">
-      Setiap timeframe dianalisis terpisah. Data di bagian ini adalah
-      simulasi untuk pengujian kode, bukan konfirmasi trading.
+  <section class="card">
+    <div class="sectionTitle">ORDER BLOCK · FRESH ZONES</div>
+    <div class="muted" style="font-size:10px;line-height:1.5">
+      Kandidat OB dihitung dari candle historis. Zona dianggap tersentuh jika candle setelah pembentukan menyentuh atau menembus rentang zona.
     </div>
-  </div>
-
-  <div class="card">
-    <div class="heading"><h2>ORDER BLOCK — FRESH ONLY</h2>
-    <span class="pill">WICK + BODY</span></div>
-    <div id="obresult"></div>
-    <div class="muted" style="margin-top:10px">
-      OB yang pernah disentuh setelah terbentuk tidak boleh kembali
-      berstatus fresh. Aturan ini akan diuji dengan data candle sebenarnya
-      saat koneksi data market sudah tersedia.
+    <div id="obs">
+      <div class="none">Menunggu candle asli untuk menghitung OB.</div>
     </div>
-  </div>
+  </section>
 
-  <div class="card">
-    <div class="heading"><h2>SNR — SUPPORT & RESISTANCE</h2></div>
-    <div id="snr"></div>
-  </div>
-
-  <div class="card">
-    <div class="heading"><h2>SND — SUPPLY & DEMAND</h2></div>
-    <div id="snd"></div>
-  </div>
-
-  <div class="card">
-    <div class="heading"><h2>SISTEM OTOMATIS</h2>
-    <span class="pill" id="autostatus">LOKAL</span></div>
-    <div class="muted" id="autotext">
-      Mesin analisa demo memperbarui tampilan otomatis ketika halaman terbuka.
-      Belum tersambung ke data market atau server.
+  <section class="card">
+    <div class="sectionTitle">MULTI-TIMEFRAME CHECK</div>
+    <div id="mtf" class="grid">
+      <div class="none">Memuat M5, M15, M30, H1, H4…</div>
     </div>
-    <button class="primary" id="refresh">JALANKAN ANALISA ULANG</button>
-    <button class="secondary" id="notif" style="width:100%;margin-top:8px">
-      UJI IZIN NOTIFIKASI
-    </button>
-    <div class="notice" style="margin-top:10px">
-      Notifikasi pengujian hanya menguji izin browser. Sinyal otomatis
-      saat aplikasi tertutup memerlukan layanan backend/push.
-    </div>
+    <p class="muted" style="font-size:10px;line-height:1.5;margin-bottom:0">
+      M1 digunakan sebagai pemeriksaan tambahan OB. Status searah bukan jaminan harga akan bergerak sesuai analisis.
+    </p>
+  </section>
+
+  <section class="card warning wide">
+    <b>MODE DATA ASLI — TIDAK ADA SIMULASI</b><br>
+    Harga dan candle diambil dari endpoint publik BiQuote. Data dapat berbeda dari broker yang digunakan untuk eksekusi. Jika data tidak tersedia, aplikasi menampilkan status gagal dan tidak membuat sinyal BUY/SELL. Kandidat zona OB adalah hasil aturan teknikal, bukan rekomendasi finansial.
+  </section>
+
+  <div class="footer wide">
+    SEBU DOLLAR AI · DATA: BIQUOTE · <span id="updated">Belum diperbarui</span>
   </div>
-  <footer>SEBU DOLLAR AI · PROTOTIPE ANALISA · DATA SIMULASI</footer>
 </main>
 
-<nav>
-  <a href="#top"><span>⌂</span>Beranda</a>
-  <a href="#chart"><span>▥</span>Grafik</a>
-  <a href="#mtf"><span>⌁</span>Analisa</a>
-  <a href="#obresult"><span>◈</span>Order Block</a>
-  <a href="#snd"><span>◷</span>Zona</a>
-</nav>
-
 <script>
-"use strict";
+'use strict';
 
-const TF=["M30","M15","M5","M1"];
-const state={selected:"M30",series:{},results:{}};
+const API='https://biquote.io/api';
+const $=id=>document.getElementById(id);
+const state={tf:'30m',bars:{},ticks:null,quoteAt:0};
+const tfNames={'1m':'M1','5m':'M5','15m':'M15','30m':'M30','1h':'H1','4h':'H4'};
 
-function makeCandles(seed,n=100){
-  let x=seed*7919+37,price=2650;
-  const rand=()=>{x=(x*16807)%2147483647;return x/2147483647};
-  const out=[];
-  for(let i=0;i<n;i++){
-    const open=price;
-    const drift=(rand()-.52)*2.5;
-    const close=open+drift;
-    const high=Math.max(open,close)+rand()*1.1;
-    const low=Math.min(open,close)-rand()*1.1;
-    out.push({open,high,low,close,time:i});
-    price=close;
-  }
-  return out;
+const fmt=n=>
+  Number.isFinite(Number(n))
+    ? Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+    : '—';
+
+function setStatus(ok,msg){
+  $('status').textContent=msg;
+  $('dot').className='dot '+(ok?'live':'bad');
 }
 
-function pivots(c){
-  const out=[];
-  for(let i=2;i<c.length-2;i++){
-    const top=[c[i-2],c[i-1],c[i+1],c[i+2]]
-      .every(v=>c[i].high>v.high);
-    const bottom=[c[i-2],c[i-1],c[i+1],c[i+2]]
-      .every(v=>c[i].low<v.low);
-    if(top)out.push({i,price:c[i].high,type:"H"});
-    if(bottom)out.push({i,price:c[i].low,type:"L"});
-  }
-  return out;
+async function fetchJSON(url){
+  const r=await fetch(url,{cache:'no-store'});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
 }
 
-function analyze(c){
-  const ps=pivots(c), labeled=[];
-  let lastH=null,lastL=null;
-  for(const p of ps){
-    if(p.type==="H"){
-      const label=lastH===null?"H":p.price>lastH?"HH":"LH";
-      labeled.push({...p,label});lastH=p.price;
-    }else{
-      const label=lastL===null?"L":p.price>lastL?"HL":"LL";
-      labeled.push({...p,label});lastL=p.price;
+async function loadQuote(){
+  try{
+    const q=await fetchJSON(API+'/XAUUSD?allowStale=false');
+
+    if(!Number.isFinite(Number(q.mid))||Number(q.mid)<=0){
+      throw new Error('Format harga tidak valid');
+    }
+
+    state.ticks=q;
+    state.quoteAt=Date.now();
+
+    $('price').textContent=fmt(q.mid);
+    $('source').textContent=(q.source||'BiQuote')+' · MID';
+
+    $('daychange').textContent=Number.isFinite(Number(q.dayDiffPercent))
+      ? `${Number(q.dayDiffPercent)>0?'+':''}${Number(q.dayDiffPercent).toFixed(2)}% hari ini`
+      : '';
+
+    $('daychange').className='change '+(Number(q.dayDiffPercent)>=0?'green':'red');
+
+    const closed=q.marketState==='closed';
+
+    $('market').textContent=closed?'MARKET CLOSED':q.stale?'DATA LAMA':'LIVE';
+    $('market').style.color=closed?'#ffbd65':q.stale?'#ff6474':'#28d89a';
+
+    setStatus(
+      !q.stale&&!closed,
+      closed?'MARKET TUTUP · HARGA TERAKHIR':
+      q.stale?'DATA TIDAK TERBARU':'BIQUOTE LIVE · XAUUSD'
+    );
+
+    $('age').textContent=q.quoteAgeSeconds!=null
+      ? `${q.quoteAgeSeconds}s delay`
+      : 'Data diterima';
+
+  }catch(e){
+    setStatus(false,'GAGAL MEMUAT HARGA BIQUOTE');
+    $('market').textContent='DATA OFFLINE';
+    $('source').textContent='Harga disembunyikan sampai data valid';
+    $('age').textContent='Periksa koneksi';
+    console.error(e);
+  }
+}
+
+async function loadBars(tf){
+  try{
+    const data=await fetchJSON(
+      `${API}/XAUUSD/ohlc?interval=${encodeURIComponent(tf)}&limit=180`
+    );
+
+    if(data.symbol!=='XAUUSD'||!Array.isArray(data.bars)){
+      throw new Error('Struktur data tidak sesuai');
+    }
+
+    const bars=data.bars
+      .filter(b=>
+        !b.isOpen &&
+        [b.open,b.high,b.low,b.close].every(v=>Number.isFinite(Number(v))) &&
+        Number(b.high)>=Number(b.low)
+      )
+      .map(b=>({
+        ...b,
+        open:+b.open,
+        high:+b.high,
+        low:+b.low,
+        close:+b.close,
+        time:Date.parse(b.openTime)
+      }))
+      .filter(b=>Number.isFinite(b.time))
+      .sort((a,b)=>a.time-b.time);
+
+    if(bars.length<20){
+      throw new Error('Candle tertutup kurang dari 20');
+    }
+
+    state.bars[tf]=bars;
+
+    if(tf===state.tf)renderSelected();
+    return bars;
+
+  }catch(e){
+    console.error('OHLC '+tf,e);
+
+    if(tf===state.tf){
+      $('trend').textContent='DATA TIDAK TERSEDIA';
+      $('structure').textContent='—';
+      $('confirm').textContent='NONAKTIF';
+      $('analysisnote').textContent=
+        'Tidak bisa memuat candle asli BiQuote. Analisis dan sinyal dinonaktifkan.';
+      $('barcount').textContent='Candle tertutup: —';
+      $('lastbar').textContent='Waktu candle: —';
+      $('obs').innerHTML=
+        '<div class="none">Data candle gagal dimuat. Tidak ada OB yang ditampilkan.</div>';
+      drawChart([]);
+    }
+
+    return null;
+  }
+}
+
+function avgBody(bars,end,count=10){
+  let s=0,n=0;
+
+  for(let i=Math.max(0,end-count);i<end;i++){
+    s+=Math.abs(bars[i].close-bars[i].open);
+    n++;
+  }
+
+  return n?s/n:0;
+}
+
+function getStructure(bars){
+  if(bars.length<12){
+    return {
+      trend:'DATA KURANG',
+      structure:'—',
+      note:'Butuh minimal 12 candle tertutup.'
+    };
+  }
+
+  const b=bars.slice(-30);
+  const pivH=[],pivL=[];
+
+  for(let i=2;i<b.length-2;i++){
+    if(
+      b[i].high>b[i-1].high &&
+      b[i].high>b[i-2].high &&
+      b[i].high>=b[i+1].high &&
+      b[i].high>=b[i+2].high
+    ){
+      pivH.push({i,p:b[i].high});
+    }
+
+    if(
+      b[i].low<b[i-1].low &&
+      b[i].low<b[i-2].low &&
+      b[i].low<=b[i+1].low &&
+      b[i].low<=b[i+2].low
+    ){
+      pivL.push({i,p:b[i].low});
     }
   }
-  const highs=labeled.filter(p=>p.type==="H");
-  const lows=labeled.filter(p=>p.type==="L");
-  const h=highs.slice(-2),l=lows.slice(-2);
-  let bias="SIDEWAYS";
-  if(h.length===2&&l.length===2){
-    if(h[1].price>h[0].price&&l[1].price>l[0].price)bias="BULLISH";
-    else if(h[1].price<h[0].price&&l[1].price<l[0].price)bias="BEARISH";
+
+  let trend='SIDEWAYS',structure='RANGE';
+
+  if(pivH.length>=2&&pivL.length>=2){
+    const h1=pivH.at(-2).p;
+    const h2=pivH.at(-1).p;
+    const l1=pivL.at(-2).p;
+    const l2=pivL.at(-1).p;
+
+    if(h2>h1&&l2>l1){
+      trend='BULLISH';
+      structure='HH · HL';
+    }else if(h2<h1&&l2<l1){
+      trend='BEARISH';
+      structure='LH · LL';
+    }
   }
-  const last=c[c.length-1];
-  let event="NONE";
-  if(h.length&&last.close>h[h.length-1].price)event=bias==="BEARISH"?"CHOCH UP":"BOS UP";
-  if(l.length&&last.close<l[l.length-1].price)event=bias==="BULLISH"?"CHOCH DOWN":"BOS DOWN";
-  const recent=labeled.slice(-6);
-  const rsi=calcRSI(c,14);
-  const ob=findOB(c);
-  return {ps,labeled,bias,event,recent,rsi,ob,last};
+
+  const last=b.at(-1);
+  const priorHigh=Math.max(...b.slice(-8,-1).map(x=>x.high));
+  const priorLow=Math.min(...b.slice(-8,-1).map(x=>x.low));
+
+  const brk=last.close>priorHigh
+    ? 'BOS BULLISH'
+    : last.close<priorLow
+      ? 'BOS BEARISH'
+      : 'BELUM ADA BOS';
+
+  return {
+    trend,
+    structure,
+    note:`Struktur berdasarkan swing 2-candle. ${brk}. Konfirmasi arah ini bukan sinyal transaksi.`
+  };
 }
 
-function calcRSI(c,n){
-  if(c.length<=n)return 50;
-  let up=0,down=0;
-  for(let i=c.length-n;i<c.length;i++){
-    const d=c[i].close-c[i-1].close;
-    if(d>0)up+=d;else down-=d;
-  }
-  if(down===0)return 100;
-  return 100-100/(1+up/down);
-}
+function findOB(bars){
+  if(bars.length<25)return [];
 
-// Kandidat OB demo: candle berlawanan sebelum impuls.
-// Freshness ditentukan dengan memeriksa candle setelah kandidat.
-function findOB(c){
-  for(let i=c.length-5;i>=Math.max(2,c.length-35);i--){
-    const a=c[i],b=c[i+1],bull=a.close<a.open&&b.close>b.open;
-    const bear=a.close>a.open&&b.close<a.close;
-    let dir=null;
-    if(bull&&b.close>a.high)dir="BULLISH";
-    if(bear&&b.close<a.low)dir="BEARISH";
+  const zones=[];
+  const start=Math.max(5,bars.length-120);
+
+  for(let i=start;i<bars.length-2;i++){
+    const c=bars[i];
+    const avg=avgBody(bars,i,10);
+
+    if(!avg)continue;
+
+    let dir=null,disp=-1;
+
+    for(let j=i+1;j<=Math.min(i+3,bars.length-1);j++){
+      const d=bars[j];
+
+      if(Math.abs(d.close-d.open)>=avg*1.25){
+        if(
+          c.close<c.open &&
+          d.close>d.open &&
+          d.close>Math.max(...bars.slice(Math.max(0,i-5),i).map(x=>x.high))
+        ){
+          dir='BULLISH';
+          disp=j;
+          break;
+        }
+
+        if(
+          c.close>c.open &&
+          d.close<d.open &&
+          d.close<Math.min(...bars.slice(Math.max(0,i-5),i).map(x=>x.low))
+        ){
+          dir='BEARISH';
+          disp=j;
+          break;
+        }
+      }
+    }
+
     if(!dir)continue;
-    const lo=a.low,hi=a.high;
-    const touched=c.slice(i+2).some(v=>v.low<=hi&&v.high>=lo);
-    return {dir,lo,hi,index:i,fresh:!touched};
-  }
-  return null;
-}
 
-function zoneBox(title,range,status,color){
-  return `<div class="zone"><div class="row">
-    <strong class="${color}">${title}</strong>
-    <span class="tag">${status}</span></div>
-    <div class="muted">${range}</div></div>`;
-}
+    const low=c.low,high=c.high;
+    let touched=false;
 
-function fmt(v){return Number(v).toFixed(2)}
-
-function render(){
-  const c=state.series[state.selected],r=analyze(c);
-  state.results[state.selected]=r;
-  document.getElementById("price").textContent=fmt(r.last.close);
-  document.getElementById("charttf").textContent="Timeframe "+state.selected;
-  document.getElementById("candlecount").textContent=c.length+" candle demo";
-  document.getElementById("bias").textContent=r.bias;
-  document.getElementById("bias").className=
-    r.bias==="BULLISH"?"green":r.bias==="BEARISH"?"red":"warning";
-  document.getElementById("structure").textContent=
-    r.recent.slice(-2).map(p=>p.label).join(" / ")||"--";
-  document.getElementById("break").textContent=r.event;
-  document.getElementById("pivot").textContent=r.ps.length;
-  document.getElementById("rsiLabel").textContent="RSI "+fmt(r.rsi);
-  document.getElementById("explanation").textContent=
-    r.bias==="BULLISH"?"Struktur swing demo menunjukkan puncak dan lembah meningkat.":
-    r.bias==="BEARISH"?"Struktur swing demo menunjukkan puncak dan lembah menurun.":
-    "Struktur belum menunjukkan arah naik atau turun yang konsisten.";
-  draw(c,r);
-  renderZones(r);
-  renderMTF();
-}
-
-function renderZones(r){
-  const hi=r.ps.filter(p=>p.type==="H").slice(-2);
-  const lo=r.ps.filter(p=>p.type==="L").slice(-2);
-  document.getElementById("snr").innerHTML=
-    (hi.length?zoneBox("Resistance",hi.map(p=>fmt(p.price)).join(" / "),"DEMO","red"):"")+
-    (lo.length?zoneBox("Support",lo.map(p=>fmt(p.price)).join(" / "),"DEMO","green"):"");
-  const ob=r.ob;
-  document.getElementById("obresult").innerHTML=ob?
-    zoneBox(ob.dir+" OB",fmt(ob.lo)+" — "+fmt(ob.hi),
-    ob.fresh?"FRESH DEMO":"TOUCHED DEMO",ob.dir==="BULLISH"?"green":"red"):
-    zoneBox("Order Block","Belum ditemukan","TIDAK TERSEDIA","warning");
-  document.getElementById("snd").innerHTML=ob?
-    zoneBox(ob.dir==="BULLISH"?"Demand kandidat":"Supply kandidat",
-    fmt(ob.lo)+" — "+fmt(ob.hi),
-    "KANDIDAT DEMO","gold"):
-    zoneBox("Supply / Demand","Belum terdeteksi","TIDAK TERSEDIA","warning");
-}
-
-function renderMTF(){
-  const html=TF.map(tf=>{
-    const r=state.results[tf]||analyze(state.series[tf]);
-    state.results[tf]=r;
-    const dir=r.ob?r.ob.dir:"NONE";
-    const fresh=r.ob&&r.ob.fresh;
-    const aligned=TF.every(t=>{
-      const z=state.results[t]||analyze(state.series[t]);
-      return z.ob&&z.ob.fresh&&z.ob.dir===dir&&dir!=="NONE";
-    });
-    return `<tr><td><b>${tf}</b></td>
-    <td>${r.bias}</td>
-    <td>${dir==="NONE"?"--":dir}</td>
-    <td class="${fresh?"green":"warning"}">${
-      !r.ob?"NO OB":fresh?(aligned?"FRESH · ALIGN":"FRESH DEMO"):"TOUCHED"
-    }</td></tr>`;
-  }).join("");
-  document.getElementById("mtf").innerHTML=html;
-}
-
-function draw(c,r){
-  const cv=document.getElementById("chart");
-  const rect=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
-  cv.width=Math.max(1,rect.width*dpr);
-  cv.height=245*dpr;
-  const ctx=cv.getContext("2d");ctx.scale(dpr,dpr);
-  const w=rect.width,h=245;
-  ctx.fillStyle="#090d13";ctx.fillRect(0,0,w,h);
-  const data=c.slice(-48);
-  let min=Math.min(...data.map(x=>x.low));
-  let max=Math.max(...data.map(x=>x.high));
-  const pad=(max-min)*.12||1;min-=pad;max+=pad;
-  const y=v=>h-20-(v-min)/(max-min)*(h-38);
-  for(let i=0;i<5;i++){
-    const yy=10+i*(h-30)/4;
-    ctx.strokeStyle="#242b35";ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(w,yy);ctx.stroke();
-  }
-  const step=w/data.length,cw=Math.max(2,step*.57);
-  data.forEach((v,i)=>{
-    const x=i*step+step/2;
-    const color=v.close>=v.open?"#20d890":"#ff596b";
-    ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(x,y(v.high));ctx.lineTo(x,y(v.low));ctx.stroke();
-    const top=y(Math.max(v.open,v.close)),bottom=y(Math.min(v.open,v.close));
-    ctx.fillRect(x-cw/2,top,cw,Math.max(1,bottom-top));
-  });
-  if(r.ob){
-    ctx.strokeStyle=r.ob.dir==="BULLISH"?"#20d890":"#ff596b";
-    ctx.setLineDash([4,3]);
-    ctx.strokeRect(0,y(r.ob.hi),w,y(r.ob.lo)-y(r.ob.hi));
-    ctx.setLineDash([]);
-  }
-  ctx.fillStyle="#8993a3";ctx.font="10px Arial";
-  ctx.fillText("DEMO · bukan harga live",7,14);
-}
-
-function init(){
-  const seeds={M30:31,M15:53,M5:71,M1:89,H1:101,H4:131};
-  Object.keys(seeds).forEach(tf=>state.series[tf]=makeCandles(seeds[tf]));
-  document.querySelectorAll(".tf").forEach(b=>{
-    b.addEventListener("click",()=>{
-      state.selected=b.dataset.tf;
-      document.querySelectorAll(".tf").forEach(x=>x.classList.toggle("active",x===b));
-      render();
-    });
-  });
-  document.getElementById("refresh").addEventListener("click",render);
-  document.getElementById("notif").addEventListener("click",async()=>{
-    if(!("Notification" in window)){
-      alert("Browser ini tidak mendukung Notification API.");
-      return;
+    for(let k=disp+1;k<bars.length;k++){
+      if(bars[k].low<=high&&bars[k].high>=low){
+        touched=true;
+        break;
+      }
     }
-    try{
-      const p=await Notification.requestPermission();
-      if(p==="granted"){
-        new Notification("SEBU DOLLAR AI",{body:"Uji notifikasi berhasil. Ini bukan sinyal trading."});
-        alert("Izin notifikasi diberikan. Ini baru uji browser.");
-      }else alert("Izin notifikasi belum diberikan.");
-    }catch(e){alert("Notifikasi tidak tersedia pada konteks ini.");}
-  });
-  render();
+
+    zones.push({
+      dir,
+      low,
+      high,
+      time:c.time,
+      fresh:!touched,
+      dispTime:bars[disp].time
+    });
+  }
+
+  const unique=[];
+
+  for(const z of zones.reverse()){
+    if(!unique.some(x=>
+      x.dir===z.dir &&
+      Math.abs(x.low-z.low)<0.01 &&
+      Math.abs(x.high-z.high)<0.01
+    )){
+      unique.push(z);
+    }
+
+    if(unique.length>=8)break;
+  }
+
+  return unique;
 }
-init();
-window.addEventListener("resize",()=>draw(state.series[state.selected],analyze(state.series[state.selected])));
-</script>
-</body>
-</html>
+
+function renderSelected(){
+  const bars=state.bars[state.tf]||[];
+  if(!bars.length)return;
+
+  const a=getStructure(bars);
+
+  $('trend').textContent=a.trend;
+  $('trend').className='v '+(
+    a.trend==='BULLISH'?'green':
+    a.trend==='BEARISH'?'red':'gold'
+  );
+
+  $('structure').textContent=a.structure;
+  $('confirm').textContent='BELUM VALID';
+
+  $('analysisnote').textContent=
+    a.note+' Sistem tidak menerbitkan BUY/SELL otomatis pada file ini.';
+
+  $('barcount').textContent=`Candle tertutup: ${bars.length}`;
+
+  $('lastbar').textContent='Candle: '+new Date(
+    bars.at(-1).time
+  ).
