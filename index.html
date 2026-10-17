@@ -1,1 +1,423 @@
 
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080a0e">
+<title>SEBU DOLLAR AI | Gold Analyzer</title>
+<style>
+:root{
+  --bg:#080a0e;--panel:#10141b;--panel2:#171c25;
+  --gold:#e9bd55;--gold2:#fff0b0;--text:#f4f5f7;
+  --muted:#8993a3;--green:#20d890;--red:#ff596b;
+  --blue:#55c7ff;--border:#303541;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+font:14px Arial,sans-serif;padding-bottom:82px}
+header{position:sticky;top:0;z-index:5;background:#090b10;
+border-bottom:1px solid #514326;padding:15px 14px}
+.brand{display:flex;align-items:center;gap:11px}
+.crown{font-size:32px;color:var(--gold)}
+.brand h1{margin:0;font-size:17px;color:var(--gold2);letter-spacing:1px}
+.brand small{color:var(--muted);font-size:10px;letter-spacing:1.4px}
+.status{margin-left:auto;border:1px solid #695329;color:var(--gold);
+border-radius:20px;padding:6px 8px;font-size:10px}
+main{padding:12px;max-width:850px;margin:auto}
+.card{background:linear-gradient(145deg,#141922,#0d1016);
+border:1px solid var(--border);border-radius:13px;padding:14px;
+margin-bottom:12px;box-shadow:0 5px 20px #0005}
+.heading{display:flex;align-items:center;justify-content:space-between;
+gap:8px;margin-bottom:13px}
+h2{font-size:13px;letter-spacing:.7px;margin:0;color:var(--gold)}
+h3{font-size:12px;margin:0}
+.muted{color:var(--muted);font-size:11px}
+.price{font-size:28px;font-weight:700;color:var(--gold2);margin:10px 0 5px}
+.pill{font-size:10px;padding:5px 8px;border-radius:5px;
+background:#202630;color:#cbd2df;display:inline-block}
+.gold{color:var(--gold)}.green{color:var(--green)}
+.red{color:var(--red)}.blue{color:var(--blue)}
+.warning{color:#ffcc70}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.stat{padding:11px;border:1px solid var(--border);border-radius:9px;background:#0a0d12}
+.stat b{display:block;font-size:15px;margin-top:8px}
+.tfbar{display:flex;gap:6px;overflow-x:auto;margin:12px 0}
+button{cursor:pointer;font:inherit}
+.tf{flex:1;min-width:45px;border:1px solid #343b48;border-radius:7px;
+padding:10px 5px;background:#151a23;color:#cbd2df}
+.tf.active{background:linear-gradient(135deg,#f6d879,#b98225);
+color:#17120a;font-weight:bold}
+.chartwrap{width:100%;overflow:hidden}
+canvas{width:100%;height:245px;display:block}
+.table{width:100%;border-collapse:collapse;font-size:12px}
+.table td,.table th{padding:10px 5px;text-align:left;
+border-bottom:1px solid #252b35}
+.table th{color:var(--muted);font-weight:normal}
+.tag{padding:4px 6px;border-radius:5px;font-size:10px;
+background:#202630;display:inline-block}
+.zone{border:1px solid var(--border);border-radius:8px;
+padding:11px;margin-top:8px}
+.zone strong{display:block;margin-bottom:6px}
+.progress{height:5px;background:#252b35;border-radius:8px;overflow:hidden}
+.progress div{height:100%;width:0;background:var(--gold)}
+button.primary{width:100%;border:0;border-radius:8px;padding:13px;
+background:linear-gradient(100deg,#ffe5a0,#c68d2f);color:#17120a;
+font-weight:bold;margin-top:10px}
+button.secondary{border:1px solid var(--border);border-radius:7px;
+padding:9px;background:#171c25;color:var(--text)}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:10;
+background:#0d1016;border-top:1px solid var(--border);
+display:flex;justify-content:space-around;padding:11px 2px max(10px,env(safe-area-inset-bottom))}
+nav a{text-align:center;color:var(--muted);text-decoration:none;font-size:10px}
+nav a span{display:block;font-size:19px;margin-bottom:4px}
+.notice{padding:10px;border-radius:8px;background:#2a2112;
+border:1px solid #6c5124;color:#f2d18b;font-size:11px;line-height:1.6}
+footer{text-align:center;padding:12px;color:var(--muted);font-size:10px}
+@media(min-width:600px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="crown">♛</div>
+    <div><h1>SEBU DOLLAR AI</h1>
+    <small>GOLD INSTITUTIONAL ANALYZER</small></div>
+    <div class="status">● DEMO MODE</div>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <div class="row">
+      <div><span class="gold">◆</span> <b>XAU/USD</b>
+      <div class="muted">Gold Spot · Simulasi lokal</div></div>
+      <span class="pill">DATA DEMO</span>
+    </div>
+    <div class="price" id="price">--</div>
+    <div class="muted">Harga simulasi — BUKAN harga pasar live</div>
+    <div class="tfbar" id="tfbar">
+      <button class="tf" data-tf="M1">M1</button>
+      <button class="tf" data-tf="M5">M5</button>
+      <button class="tf" data-tf="M15">M15</button>
+      <button class="tf active" data-tf="M30">M30</button>
+      <button class="tf" data-tf="H1">H1</button>
+      <button class="tf" data-tf="H4">H4</button>
+    </div>
+    <div class="chartwrap"><canvas id="chart"></canvas></div>
+    <div class="row muted"><span id="charttf">Timeframe M30</span>
+    <span id="candlecount">0 candle</span></div>
+  </div>
+
+  <div class="card">
+    <div class="heading"><h2>AI MARKET OVERVIEW</h2>
+    <span class="pill">RULE ENGINE</span></div>
+    <div class="grid">
+      <div class="stat"><span class="muted">Bias Struktur</span>
+      <b id="bias">Menghitung...</b></div>
+      <div class="stat"><span class="muted">Market Structure</span>
+      <b id="structure">--</b></div>
+      <div class="stat"><span class="muted">BOS / CHOCH</span>
+      <b id="break">--</b></div>
+      <div class="stat"><span class="muted">Pivot terakhir</span>
+      <b id="pivot">--</b></div>
+    </div>
+    <div class="zone">
+      <div class="row"><strong>Analisa teknikal</strong>
+      <span class="pill" id="rsiLabel">RSI --</span></div>
+      <div class="muted" id="explanation">Menunggu analisa...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="heading"><h2>MULTI-TIMEFRAME ALIGNMENT</h2>
+    <span class="muted">M30 / M15 / M5 / M1</span></div>
+    <table class="table">
+      <thead><tr><th>TF</th><th>Struktur</th><th>OB</th><th>Status</th></tr></thead>
+      <tbody id="mtf"></tbody>
+    </table>
+    <div class="notice" style="margin-top:10px">
+      Setiap timeframe dianalisis terpisah. Data di bagian ini adalah
+      simulasi untuk pengujian kode, bukan konfirmasi trading.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="heading"><h2>ORDER BLOCK — FRESH ONLY</h2>
+    <span class="pill">WICK + BODY</span></div>
+    <div id="obresult"></div>
+    <div class="muted" style="margin-top:10px">
+      OB yang pernah disentuh setelah terbentuk tidak boleh kembali
+      berstatus fresh. Aturan ini akan diuji dengan data candle sebenarnya
+      saat koneksi data market sudah tersedia.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="heading"><h2>SNR — SUPPORT & RESISTANCE</h2></div>
+    <div id="snr"></div>
+  </div>
+
+  <div class="card">
+    <div class="heading"><h2>SND — SUPPLY & DEMAND</h2></div>
+    <div id="snd"></div>
+  </div>
+
+  <div class="card">
+    <div class="heading"><h2>SISTEM OTOMATIS</h2>
+    <span class="pill" id="autostatus">LOKAL</span></div>
+    <div class="muted" id="autotext">
+      Mesin analisa demo memperbarui tampilan otomatis ketika halaman terbuka.
+      Belum tersambung ke data market atau server.
+    </div>
+    <button class="primary" id="refresh">JALANKAN ANALISA ULANG</button>
+    <button class="secondary" id="notif" style="width:100%;margin-top:8px">
+      UJI IZIN NOTIFIKASI
+    </button>
+    <div class="notice" style="margin-top:10px">
+      Notifikasi pengujian hanya menguji izin browser. Sinyal otomatis
+      saat aplikasi tertutup memerlukan layanan backend/push.
+    </div>
+  </div>
+  <footer>SEBU DOLLAR AI · PROTOTIPE ANALISA · DATA SIMULASI</footer>
+</main>
+
+<nav>
+  <a href="#top"><span>⌂</span>Beranda</a>
+  <a href="#chart"><span>▥</span>Grafik</a>
+  <a href="#mtf"><span>⌁</span>Analisa</a>
+  <a href="#obresult"><span>◈</span>Order Block</a>
+  <a href="#snd"><span>◷</span>Zona</a>
+</nav>
+
+<script>
+"use strict";
+
+const TF=["M30","M15","M5","M1"];
+const state={selected:"M30",series:{},results:{}};
+
+function makeCandles(seed,n=100){
+  let x=seed*7919+37,price=2650;
+  const rand=()=>{x=(x*16807)%2147483647;return x/2147483647};
+  const out=[];
+  for(let i=0;i<n;i++){
+    const open=price;
+    const drift=(rand()-.52)*2.5;
+    const close=open+drift;
+    const high=Math.max(open,close)+rand()*1.1;
+    const low=Math.min(open,close)-rand()*1.1;
+    out.push({open,high,low,close,time:i});
+    price=close;
+  }
+  return out;
+}
+
+function pivots(c){
+  const out=[];
+  for(let i=2;i<c.length-2;i++){
+    const top=[c[i-2],c[i-1],c[i+1],c[i+2]]
+      .every(v=>c[i].high>v.high);
+    const bottom=[c[i-2],c[i-1],c[i+1],c[i+2]]
+      .every(v=>c[i].low<v.low);
+    if(top)out.push({i,price:c[i].high,type:"H"});
+    if(bottom)out.push({i,price:c[i].low,type:"L"});
+  }
+  return out;
+}
+
+function analyze(c){
+  const ps=pivots(c), labeled=[];
+  let lastH=null,lastL=null;
+  for(const p of ps){
+    if(p.type==="H"){
+      const label=lastH===null?"H":p.price>lastH?"HH":"LH";
+      labeled.push({...p,label});lastH=p.price;
+    }else{
+      const label=lastL===null?"L":p.price>lastL?"HL":"LL";
+      labeled.push({...p,label});lastL=p.price;
+    }
+  }
+  const highs=labeled.filter(p=>p.type==="H");
+  const lows=labeled.filter(p=>p.type==="L");
+  const h=highs.slice(-2),l=lows.slice(-2);
+  let bias="SIDEWAYS";
+  if(h.length===2&&l.length===2){
+    if(h[1].price>h[0].price&&l[1].price>l[0].price)bias="BULLISH";
+    else if(h[1].price<h[0].price&&l[1].price<l[0].price)bias="BEARISH";
+  }
+  const last=c[c.length-1];
+  let event="NONE";
+  if(h.length&&last.close>h[h.length-1].price)event=bias==="BEARISH"?"CHOCH UP":"BOS UP";
+  if(l.length&&last.close<l[l.length-1].price)event=bias==="BULLISH"?"CHOCH DOWN":"BOS DOWN";
+  const recent=labeled.slice(-6);
+  const rsi=calcRSI(c,14);
+  const ob=findOB(c);
+  return {ps,labeled,bias,event,recent,rsi,ob,last};
+}
+
+function calcRSI(c,n){
+  if(c.length<=n)return 50;
+  let up=0,down=0;
+  for(let i=c.length-n;i<c.length;i++){
+    const d=c[i].close-c[i-1].close;
+    if(d>0)up+=d;else down-=d;
+  }
+  if(down===0)return 100;
+  return 100-100/(1+up/down);
+}
+
+// Kandidat OB demo: candle berlawanan sebelum impuls.
+// Freshness ditentukan dengan memeriksa candle setelah kandidat.
+function findOB(c){
+  for(let i=c.length-5;i>=Math.max(2,c.length-35);i--){
+    const a=c[i],b=c[i+1],bull=a.close<a.open&&b.close>b.open;
+    const bear=a.close>a.open&&b.close<a.close;
+    let dir=null;
+    if(bull&&b.close>a.high)dir="BULLISH";
+    if(bear&&b.close<a.low)dir="BEARISH";
+    if(!dir)continue;
+    const lo=a.low,hi=a.high;
+    const touched=c.slice(i+2).some(v=>v.low<=hi&&v.high>=lo);
+    return {dir,lo,hi,index:i,fresh:!touched};
+  }
+  return null;
+}
+
+function zoneBox(title,range,status,color){
+  return `<div class="zone"><div class="row">
+    <strong class="${color}">${title}</strong>
+    <span class="tag">${status}</span></div>
+    <div class="muted">${range}</div></div>`;
+}
+
+function fmt(v){return Number(v).toFixed(2)}
+
+function render(){
+  const c=state.series[state.selected],r=analyze(c);
+  state.results[state.selected]=r;
+  document.getElementById("price").textContent=fmt(r.last.close);
+  document.getElementById("charttf").textContent="Timeframe "+state.selected;
+  document.getElementById("candlecount").textContent=c.length+" candle demo";
+  document.getElementById("bias").textContent=r.bias;
+  document.getElementById("bias").className=
+    r.bias==="BULLISH"?"green":r.bias==="BEARISH"?"red":"warning";
+  document.getElementById("structure").textContent=
+    r.recent.slice(-2).map(p=>p.label).join(" / ")||"--";
+  document.getElementById("break").textContent=r.event;
+  document.getElementById("pivot").textContent=r.ps.length;
+  document.getElementById("rsiLabel").textContent="RSI "+fmt(r.rsi);
+  document.getElementById("explanation").textContent=
+    r.bias==="BULLISH"?"Struktur swing demo menunjukkan puncak dan lembah meningkat.":
+    r.bias==="BEARISH"?"Struktur swing demo menunjukkan puncak dan lembah menurun.":
+    "Struktur belum menunjukkan arah naik atau turun yang konsisten.";
+  draw(c,r);
+  renderZones(r);
+  renderMTF();
+}
+
+function renderZones(r){
+  const hi=r.ps.filter(p=>p.type==="H").slice(-2);
+  const lo=r.ps.filter(p=>p.type==="L").slice(-2);
+  document.getElementById("snr").innerHTML=
+    (hi.length?zoneBox("Resistance",hi.map(p=>fmt(p.price)).join(" / "),"DEMO","red"):"")+
+    (lo.length?zoneBox("Support",lo.map(p=>fmt(p.price)).join(" / "),"DEMO","green"):"");
+  const ob=r.ob;
+  document.getElementById("obresult").innerHTML=ob?
+    zoneBox(ob.dir+" OB",fmt(ob.lo)+" — "+fmt(ob.hi),
+    ob.fresh?"FRESH DEMO":"TOUCHED DEMO",ob.dir==="BULLISH"?"green":"red"):
+    zoneBox("Order Block","Belum ditemukan","TIDAK TERSEDIA","warning");
+  document.getElementById("snd").innerHTML=ob?
+    zoneBox(ob.dir==="BULLISH"?"Demand kandidat":"Supply kandidat",
+    fmt(ob.lo)+" — "+fmt(ob.hi),
+    "KANDIDAT DEMO","gold"):
+    zoneBox("Supply / Demand","Belum terdeteksi","TIDAK TERSEDIA","warning");
+}
+
+function renderMTF(){
+  const html=TF.map(tf=>{
+    const r=state.results[tf]||analyze(state.series[tf]);
+    state.results[tf]=r;
+    const dir=r.ob?r.ob.dir:"NONE";
+    const fresh=r.ob&&r.ob.fresh;
+    const aligned=TF.every(t=>{
+      const z=state.results[t]||analyze(state.series[t]);
+      return z.ob&&z.ob.fresh&&z.ob.dir===dir&&dir!=="NONE";
+    });
+    return `<tr><td><b>${tf}</b></td>
+    <td>${r.bias}</td>
+    <td>${dir==="NONE"?"--":dir}</td>
+    <td class="${fresh?"green":"warning"}">${
+      !r.ob?"NO OB":fresh?(aligned?"FRESH · ALIGN":"FRESH DEMO"):"TOUCHED"
+    }</td></tr>`;
+  }).join("");
+  document.getElementById("mtf").innerHTML=html;
+}
+
+function draw(c,r){
+  const cv=document.getElementById("chart");
+  const rect=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  cv.width=Math.max(1,rect.width*dpr);
+  cv.height=245*dpr;
+  const ctx=cv.getContext("2d");ctx.scale(dpr,dpr);
+  const w=rect.width,h=245;
+  ctx.fillStyle="#090d13";ctx.fillRect(0,0,w,h);
+  const data=c.slice(-48);
+  let min=Math.min(...data.map(x=>x.low));
+  let max=Math.max(...data.map(x=>x.high));
+  const pad=(max-min)*.12||1;min-=pad;max+=pad;
+  const y=v=>h-20-(v-min)/(max-min)*(h-38);
+  for(let i=0;i<5;i++){
+    const yy=10+i*(h-30)/4;
+    ctx.strokeStyle="#242b35";ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(w,yy);ctx.stroke();
+  }
+  const step=w/data.length,cw=Math.max(2,step*.57);
+  data.forEach((v,i)=>{
+    const x=i*step+step/2;
+    const color=v.close>=v.open?"#20d890":"#ff596b";
+    ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,y(v.high));ctx.lineTo(x,y(v.low));ctx.stroke();
+    const top=y(Math.max(v.open,v.close)),bottom=y(Math.min(v.open,v.close));
+    ctx.fillRect(x-cw/2,top,cw,Math.max(1,bottom-top));
+  });
+  if(r.ob){
+    ctx.strokeStyle=r.ob.dir==="BULLISH"?"#20d890":"#ff596b";
+    ctx.setLineDash([4,3]);
+    ctx.strokeRect(0,y(r.ob.hi),w,y(r.ob.lo)-y(r.ob.hi));
+    ctx.setLineDash([]);
+  }
+  ctx.fillStyle="#8993a3";ctx.font="10px Arial";
+  ctx.fillText("DEMO · bukan harga live",7,14);
+}
+
+function init(){
+  const seeds={M30:31,M15:53,M5:71,M1:89,H1:101,H4:131};
+  Object.keys(seeds).forEach(tf=>state.series[tf]=makeCandles(seeds[tf]));
+  document.querySelectorAll(".tf").forEach(b=>{
+    b.addEventListener("click",()=>{
+      state.selected=b.dataset.tf;
+      document.querySelectorAll(".tf").forEach(x=>x.classList.toggle("active",x===b));
+      render();
+    });
+  });
+  document.getElementById("refresh").addEventListener("click",render);
+  document.getElementById("notif").addEventListener("click",async()=>{
+    if(!("Notification" in window)){
+      alert("Browser ini tidak mendukung Notification API.");
+      return;
+    }
+    try{
+      const p=await Notification.requestPermission();
+      if(p==="granted"){
+        new Notification("SEBU DOLLAR AI",{body:"Uji notifikasi berhasil. Ini bukan sinyal trading."});
+        alert("Izin notifikasi diberikan. Ini baru uji browser.");
+      }else alert("Izin notifikasi belum diberikan.");
+    }catch(e){alert("Notifikasi tidak tersedia pada konteks ini.");}
+  });
+  render();
+}
+init();
+window.addEventListener("resize",()=>draw(state.series[state.selected],analyze(state.series[state.selected])));
+</script>
+</body>
+</html>
