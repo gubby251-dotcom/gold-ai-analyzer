@@ -20,7 +20,7 @@ button,input,select{font:inherit}button{cursor:pointer}.app{max-width:1180px;mar
  <div class="live"><i class="dot" id="liveDot"></i><span id="connectionText">MENUNGGU DATA</span></div>
 </header>
 <section class="hero">
- <div class="herohead"><div><div class="symbol"><strong>XAU/USD</strong> · SPOT GOLD</div><div class="price" id="lastPrice">— — —</div><div class="subprice" id="priceChange">Harga menunggu feed BiQuote</div></div><span class="tag">LIVE · BIQUOTE</span></div>
+ <div class="herohead"><div><div class="symbol"><strong>XAU/USD</strong> · SPOT GOLD</div><div class="price" id="lastPrice">— — —</div><div class="subprice" id="priceChange">Harga menunggu feed BiQuote</div></div><span class="tag" id="marketStatus">MEMERIKSA PASAR</span></div>
  <div class="metrics">
   <div class="metric"><span>HIGH HARI INI</span><b id="dayHigh">—</b></div><div class="metric"><span>LOW HARI INI</span><b id="dayLow">—</b></div><div class="metric"><span>TIMEFRAME</span><b id="tfLabel">M30</b></div><div class="metric"><span>UPDATE TERAKHIR</span><b id="lastUpdate">—</b></div>
  </div>
@@ -53,7 +53,7 @@ button,input,select{font:inherit}button{cursor:pointer}.app{max-width:1180px;mar
  <aside class="rightcol">
   <section class="panel">
    <div class="panelhead"><div class="paneltitle">AI MARKET ANALYSIS</div><span class="tag">TECHNICAL</span></div>
-   <div class="analysisbox"><div class="bias"><div class="biasicon">⌁</div><div><strong id="biasTitle">Menunggu data candle</strong><small id="biasSub">Bias belum bisa ditentukan</small></div><span class="statuspill" id="confidence">—</span></div>
+   <div class="analysisbox"><div class="bias"><div class="biasicon" id="biasicon">⌁</div><div><strong id="biasTitle">Menunggu data candle</strong><small id="biasSub">Bias belum bisa ditentukan</small></div><span class="statuspill" id="confidence">—</span></div>
     <div class="statline"><span>Trend</span><b id="trend">—</b></div><div class="statline"><span>Momentum</span><b id="momentum">—</b></div><div class="statline"><span>Validasi</span><b id="validation">Belum ada data</b></div>
    </div>
    <div class="subtle" style="margin-top:10px">Analisa ini berbasis indikator teknikal, bukan jaminan hasil trading atau sinyal finansial.</div>
@@ -82,8 +82,42 @@ let timeframe = "M30", candles = [], previousClose = null, historyItems = [], qu
 const biquoteIntervals = {M5:"5m",M15:"15m",M30:"30m",H1:"1h",H4:"4h"};
 const tradingViewIntervals = {M5:"5",M15:"15",M30:"30",H1:"60",H4:"240"};
 const fmt = n => Number.isFinite(n) ? n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:3}) : "—";
-function setConnection(ok,text){$("liveDot").classList.toggle("on",ok);$("connectionText").textContent=text;}
-function message(text){$("setupNotice").textContent=text;}
+function setText(id,value){const el=$(id);if(el)el.textContent=value;}
+function setConnection(ok,text){const dot=$("liveDot");if(dot)dot.classList.toggle("on",ok);setText("connectionText",text);}
+function message(text){setText("setupNotice",text);}
+function setMarketState(state,detail){
+ const badge=$("marketStatus");
+ if(badge){badge.textContent=state;badge.style.color=state==="MARKET CLOSED"?"#f2d38a":state==="LIVE"?"#36d6a0":"#ffbd65";}
+ if(detail)setText("priceChange",detail);
+}
+function jakartaParts(date=new Date()){
+ const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Jakarta",weekday:"short",hour:"2-digit",hourCycle:"h23"}).formatToParts(date);
+ return {day:parts.find(p=>p.type==="weekday")?.value||"",hour:Number(parts.find(p=>p.type==="hour")?.value)};
+}
+function likelyWeekendClosed(){
+ const {day,hour}=jakartaParts();
+ // Conservative fallback only: do not label ordinary weekday feed errors as market closures.
+ return day==="Sat"||(day==="Sun"&&hour<6);
+}
+async function tryClosedStatus(){
+ // First trust explicit market state from the provider, if it supplies one even for stale quotes.
+ try{
+  const r=await fetch(`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD`,{cache:"no-store"});
+  if(r.ok){const q=await r.json();if(String(q.marketState||"").toLowerCase()==="closed"||q.marketOpen===false){
+   const price=Number(q.mid);if(Number.isFinite(price)&&price>0)setText("lastPrice",fmt(price));
+   setMarketState("MARKET CLOSED","Pasar tutup · harga terakhir, bukan harga live.");
+   setConnection(false,"MARKET CLOSED");
+   setText("lastUpdate",q.timestamp?new Date(q.timestamp).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}):"—");
+   message("Pasar terdeteksi tutup oleh BiQuote. Harga yang tersedia hanya harga terakhir, bukan harga live. Analisis tidak dianggap sinyal live.");return true;
+  }}
+ }catch(e){console.warn("Pemeriksaan status pasar BiQuote gagal",e)}
+ if(likelyWeekendClosed()){
+  setMarketState("MARKET CLOSED","Kemungkinan pasar tutup berdasarkan jadwal akhir pekan WIB. Harga terakhir bukan harga live.");
+  setConnection(false,"MARKET CLOSED · AKHIR PEKAN");
+  message("Waktu saat ini berada pada periode akhir pekan yang biasanya tutup untuk spot gold. Ini perkiraan jadwal, bukan konfirmasi kalender hari libur; data live belum tersedia.");return true;
+ }
+ return false;
+}
 function setTradingViewChart(){
  const host=$("tradingview_chart"); if(!host)return; host.innerHTML="";
  const container=document.createElement("div");container.className="tradingview-widget-container";container.style="height:390px;width:100%";
@@ -109,31 +143,39 @@ async function loadData(){
   $("lastUpdate").textContent=new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
   analyze();
   try{
-   await loadLiveQuote();setConnection(true,"CANDLE + HARGA VALID");
+   await loadLiveQuote();setConnection(true,"CANDLE + HARGA VALID");setMarketState("LIVE","Harga live BiQuote tervalidasi.");
    message("Candle tertutup BiQuote berhasil dimuat. Harga live hanya ditampilkan bila kutipan terbaru valid. Chart memakai TradingView OANDA:XAUUSD; sumber berbeda dapat menghasilkan selisih harga.");
   }catch(qe){
-   setConnection(false,"HARGA LIVE TIDAK TERSEDIA");
-   $("priceChange").textContent="Harga live belum tervalidasi; jangan gunakan harga lama sebagai harga sekarang.";
-   message("Data candle berhasil dimuat dan indikator dihitung, tetapi harga live BiQuote gagal atau sudah kedaluwarsa. Analisa belum boleh dianggap sinyal live. Coba Perbarui Data lagi atau tunggu feed pulih.");
+   const closed=await tryClosedStatus();
+   if(!closed){setConnection(false,"HARGA LIVE TIDAK TERSEDIA");setMarketState("FEED ERROR","Harga live belum tervalidasi; jangan gunakan harga lama sebagai harga sekarang.");
+    message("Data candle berhasil dimuat dan indikator dihitung, tetapi harga live BiQuote gagal atau kedaluwarsa. Pasar belum dapat dipastikan tutup; periksa feed atau koneksi.");}
   }
  }catch(e){
-  setConnection(false,"CANDLE GAGAL");
-  message("Data candle BiQuote belum berhasil dimuat: "+e.message+". Periksa koneksi internet atau tunggu layanan feed pulih.");
-  $("chartStatus").textContent="Data candle BiQuote belum tersedia";
- }finally{$("refreshBtn").disabled=false;}
+  const closed=await tryClosedStatus();
+  if(!closed){setConnection(false,"CANDLE / FEED ERROR");setMarketState("FEED ERROR","Harga live dan/atau candle belum tersedia.");
+   message("Data candle BiQuote belum berhasil dimuat: "+e.message+". Ini belum membuktikan pasar tutup; periksa koneksi atau layanan feed.");
+   setText("chartStatus","Data candle BiQuote belum tersedia");}
+ }finally{const refresh=$("refreshBtn");if(refresh)refresh.disabled=false;}
 }
 async function loadLiveQuote(){
- const res=await fetch(`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD?allowStale=false`,{cache:"no-store"});if(!res.ok)throw new Error("BiQuote live quote HTTP "+res.status);
- const q=await res.json();const price=Number(q.mid);if(!Number.isFinite(price)||price<=0)throw new Error("Harga mid BiQuote tidak valid");
+ const res=await fetch(`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD?allowStale=false`,{cache:"no-store"});
+ if(!res.ok)throw new Error("BiQuote live quote HTTP "+res.status);
+ const q=await res.json();
+ if(String(q.marketState||"").toLowerCase()==="closed"||q.marketOpen===false){
+  const last=Number(q.mid);if(Number.isFinite(last)&&last>0)setText("lastPrice",fmt(last));
+  setMarketState("MARKET CLOSED","Pasar tutup · harga terakhir, bukan harga live.");
+  setConnection(false,"MARKET CLOSED");throw new Error("Pasar ditandai tutup oleh BiQuote");
+ }
+ const price=Number(q.mid);if(!Number.isFinite(price)||price<=0)throw new Error("Harga mid BiQuote tidak valid");
  const age=Number(q.quoteAgeSeconds);const stamped=q.timestamp?Date.parse(q.timestamp):NaN;
  if(q.stale===true||(Number.isFinite(age)&&age>300)||(Number.isFinite(stamped)&&Date.now()-stamped>300000))throw new Error("Kutipan BiQuote lebih dari 5 menit");
- $("lastPrice").textContent=fmt(price);$("levelPrice").textContent=fmt(price);
- if(q.marketState==="closed"){$("priceChange").textContent="Pasar tutup · harga terakhir, bukan harga live";}
- else if(previousClose===null){$("priceChange").textContent=`BiQuote LIVE · mid ${fmt(price)}`;}
- else{$("priceChange").textContent=`${price>=previousClose?"▲":"▼"} ${fmt(price-previousClose)} sejak pembaruan sebelumnya · BiQuote LIVE`;}
- previousClose=price;if(Number.isFinite(Number(q.high)))$("dayHigh").textContent=fmt(Number(q.high));if(Number.isFinite(Number(q.low)))$("dayLow").textContent=fmt(Number(q.low));
- $("lastUpdate").textContent=new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
+ setText("lastPrice",fmt(price));setText("levelPrice",fmt(price));
+ if(previousClose===null)setText("priceChange",`BiQuote LIVE · mid ${fmt(price)}`);
+ else setText("priceChange",`${price>=previousClose?"▲":"▼"} ${fmt(price-previousClose)} sejak pembaruan sebelumnya · BiQuote LIVE`);
+ previousClose=price;if(Number.isFinite(Number(q.high)))setText("dayHigh",fmt(Number(q.high)));if(Number.isFinite(Number(q.low)))setText("dayLow",fmt(Number(q.low)));
+ setText("lastUpdate",new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}));
 }
+
 function ema(vals,period){if(vals.length<period)return null;let k=2/(period+1),v=vals.slice(0,period).reduce((a,b)=>a+b,0)/period;for(let i=period;i<vals.length;i++)v=vals[i]*k+v*(1-k);return v;}
 function calcRSI(vals,n=14){if(vals.length<n+1)return null;let gain=0,loss=0;for(let i=vals.length-n;i<vals.length;i++){let d=vals[i]-vals[i-1];if(d>=0)gain+=d;else loss-=d;}if(loss===0)return 100;return 100-100/(1+gain/loss);}
 function calcATR(data,n=14){if(data.length<n+1)return null;let tr=[];for(let i=1;i<data.length;i++)tr.push(Math.max(data[i].h-data[i].l,Math.abs(data[i].h-data[i-1].c),Math.abs(data[i].l-data[i-1].c)));return tr.slice(-n).reduce((a,b)=>a+b,0)/Math.min(n,tr.length);}
@@ -158,6 +200,6 @@ $("imageInput").addEventListener("change",e=>{const f=e.target.files?.[0];if(!f)
 $("clearImage").addEventListener("click",()=>{$("imageInput").value="";$("imagePreview").removeAttribute("src");$("imagePreview").style.display="none";$("imageText").textContent="Pilih screenshot chart untuk pratinjau. Analisa AI gambar membutuhkan endpoint AI terpisah; gambar tidak dikirim ke mana pun oleh halaman ini.";});
 $("clearHistory").addEventListener("click",()=>{historyItems=[];renderHistory();});
 document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x===b));const target=b.dataset.nav;if(target==="chart")document.querySelector(".chartwrap").scrollIntoView({behavior:"smooth",block:"center"});if(target==="analysis")document.querySelector("#biasTitle").scrollIntoView({behavior:"smooth",block:"center"});if(target==="history")document.querySelector("#history").scrollIntoView({behavior:"smooth",block:"center"});if(target==="settings")message("Setelan: chart memakai TradingView OANDA:XAUUSD; harga live dan indikator memakai BiQuote API publik. Tidak perlu token OANDA atau Worker untuk rancangan ini.");if(target==="overview")window.scrollTo({top:0,behavior:"smooth"});}));
-setTradingViewChart();loadData();quoteTimer=setInterval(()=>loadLiveQuote().catch(()=>{setConnection(false,"HARGA LIVE TIDAK TERSEDIA");$("priceChange").textContent="Harga live tidak tersedia atau kedaluwarsa; harga terakhir tidak dianggap live.";}),CONFIG.LIVE_POLL_MS);candleTimer=setInterval(()=>loadData(),CONFIG.CANDLE_REFRESH_MS);
+setTradingViewChart();loadData();quoteTimer=setInterval(()=>loadLiveQuote().catch(async()=>{const closed=await tryClosedStatus();if(!closed){setConnection(false,"HARGA LIVE TIDAK TERSEDIA");setMarketState("FEED ERROR","Harga live tidak tersedia/kedaluwarsa; harga terakhir bukan harga live.");}}),CONFIG.LIVE_POLL_MS);candleTimer=setInterval(()=>loadData(),CONFIG.CANDLE_REFRESH_MS);
 </script>
 </body></html>
