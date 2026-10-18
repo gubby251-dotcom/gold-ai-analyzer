@@ -31,6 +31,7 @@ jobs:
       - name: Verify Android SDK
         shell: bash
         run: |
+          set -e
           if [ ! -d "$ANDROID_HOME" ]; then
             echo "Android SDK tidak ditemukan: $ANDROID_HOME"
             exit 1
@@ -61,11 +62,34 @@ jobs:
             exit 1
           }
 
-          cp assets/logo.png app/src/main/res/mipmap-mdpi/ic_launcher.png
-          cp assets/logo.png app/src/main/res/mipmap-hdpi/ic_launcher.png
-          cp assets/logo.png app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          cp assets/logo.png app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          cp assets/logo.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          python3 -m pip install --quiet Pillow
+
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+
+          source = Path("assets/logo.png")
+          image = Image.open(source).convert("RGBA")
+
+          sizes = {
+              "mdpi": 48,
+              "hdpi": 72,
+              "xhdpi": 96,
+              "xxhdpi": 144,
+              "xxxhdpi": 192,
+          }
+
+          for density, size in sizes.items():
+              output = Path(
+                  f"app/src/main/res/mipmap-{density}/ic_launcher.png"
+              )
+              resized = image.resize(
+                  (size, size), Image.Resampling.LANCZOS
+              )
+              resized.save(output)
+
+          print("Ikon aplikasi berhasil disiapkan.")
+          PY
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
@@ -107,15 +131,16 @@ jobs:
                   applicationId 'com.sebudollar.analyzer'
                   minSdk 23
                   targetSdk 28
-                  versionCode 1
-                  versionName '1.0'
+                  versionCode 2
+                  versionName '1.1'
               }
           }
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET"/>
+
+              <uses-permission android:name="android.permission.INTERNET" />
 
               <application
                   android:theme="@style/AppTheme"
@@ -129,9 +154,10 @@ jobs:
                       android:exported="true">
 
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
+
                   </activity>
               </application>
           </manifest>
@@ -139,7 +165,8 @@ jobs:
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
-              <style name="AppTheme"
+              <style
+                  name="AppTheme"
                   parent="@android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
                   <item name="android:colorAccent">#D4AF37</item>
@@ -156,35 +183,81 @@ jobs:
 
           import android.app.Activity;
           import android.os.Bundle;
+          import android.content.Intent;
+          import android.net.Uri;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
           import android.webkit.WebChromeClient;
           import android.webkit.WebSettings;
+          import android.webkit.ValueCallback;
+          import android.webkit.PermissionRequest;
           import android.graphics.Color;
 
           public class MainActivity extends Activity {
               private WebView webView;
+              private ValueCallback<Uri[]> fileCallback;
+              private static final int FILE_CHOOSER_REQUEST = 1001;
 
               @Override
               public void onCreate(Bundle state) {
                   super.onCreate(state);
 
-                  getWindow().setStatusBarColor(Color.rgb(27, 27, 27));
-                  getWindow().setNavigationBarColor(Color.rgb(27, 27, 27));
+                  getWindow().setStatusBarColor(
+                      Color.rgb(27, 27, 27)
+                  );
+                  getWindow().setNavigationBarColor(
+                      Color.rgb(27, 27, 27)
+                  );
 
                   webView = new WebView(this);
 
                   WebSettings settings = webView.getSettings();
                   settings.setJavaScriptEnabled(true);
                   settings.setDomStorageEnabled(true);
-                  settings.setDatabaseEnabled(true);
                   settings.setLoadsImagesAutomatically(true);
+                  settings.setAllowFileAccess(true);
+                  settings.setAllowContentAccess(true);
                   settings.setMixedContentMode(
                       WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                   );
 
                   webView.setWebViewClient(new WebViewClient());
-                  webView.setWebChromeClient(new WebChromeClient());
+
+                  webView.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public boolean onShowFileChooser(
+                          WebView view,
+                          ValueCallback<Uri[]> callback,
+                          FileChooserParams params
+                      ) {
+                          if (fileCallback != null) {
+                              fileCallback.onReceiveValue(null);
+                          }
+
+                          fileCallback = callback;
+
+                          try {
+                              Intent intent = params.createIntent();
+                              startActivityForResult(
+                                  intent, FILE_CHOOSER_REQUEST
+                              );
+                              return true;
+                          } catch (Exception e) {
+                              fileCallback = null;
+                              callback.onReceiveValue(null);
+                              return false;
+                          }
+                      }
+
+                      @Override
+                      public void onPermissionRequest(
+                          PermissionRequest request
+                      ) {
+                          runOnUiThread(() -> {
+                              request.grant(request.getResources());
+                          });
+                      }
+                  });
 
                   setContentView(webView);
 
@@ -194,6 +267,43 @@ jobs:
                       webView.loadUrl(
                           "https://gubby251-dotcom.github.io/gold-ai-analyzer/"
                       );
+                  }
+              }
+
+              @Override
+              protected void onActivityResult(
+                  int requestCode,
+                  int resultCode,
+                  Intent data
+              ) {
+                  super.onActivityResult(
+                      requestCode, resultCode, data
+                  );
+
+                  if (requestCode == FILE_CHOOSER_REQUEST
+                      && fileCallback != null) {
+
+                      Uri[] results = null;
+
+                      if (resultCode == RESULT_OK && data != null) {
+                          Uri uri = data.getData();
+
+                          if (uri != null) {
+                              results = new Uri[]{uri};
+                          } else if (data.getClipData() != null) {
+                              int count =
+                                  data.getClipData().getItemCount();
+                              results = new Uri[count];
+
+                              for (int i = 0; i < count; i++) {
+                                  results[i] = data.getClipData()
+                                      .getItemAt(i).getUri();
+                              }
+                          }
+                      }
+
+                      fileCallback.onReceiveValue(results);
+                      fileCallback = null;
                   }
               }
 
@@ -216,10 +326,16 @@ jobs:
 
               @Override
               protected void onDestroy() {
+                  if (fileCallback != null) {
+                      fileCallback.onReceiveValue(null);
+                      fileCallback = null;
+                  }
+
                   if (webView != null) {
                       webView.destroy();
                       webView = null;
                   }
+
                   super.onDestroy();
               }
           }
@@ -231,6 +347,7 @@ jobs:
           set -e
           gradle assembleDebug
           test -f app/build/outputs/apk/debug/app-debug.apk
+          echo "APK berhasil dibuat."
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
