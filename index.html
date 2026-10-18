@@ -20,7 +20,7 @@ button,input,select{font:inherit}button{cursor:pointer}.app{max-width:1180px;mar
  <div class="live"><i class="dot" id="liveDot"></i><span id="connectionText">MENUNGGU DATA</span></div>
 </header>
 <section class="hero">
- <div class="herohead"><div><div class="symbol"><strong>XAU/USD</strong> · SPOT GOLD</div><div class="price" id="lastPrice">— — —</div><div class="subprice" id="priceChange">Harga menunggu feed OANDA</div></div><span class="tag">OANDA DATA</span></div>
+ <div class="herohead"><div><div class="symbol"><strong>XAU/USD</strong> · SPOT GOLD</div><div class="price" id="lastPrice">— — —</div><div class="subprice" id="priceChange">Harga menunggu feed BiQuote</div></div><span class="tag">LIVE · BIQUOTE</span></div>
  <div class="metrics">
   <div class="metric"><span>HIGH HARI INI</span><b id="dayHigh">—</b></div><div class="metric"><span>LOW HARI INI</span><b id="dayLow">—</b></div><div class="metric"><span>TIMEFRAME</span><b id="tfLabel">M30</b></div><div class="metric"><span>UPDATE TERAKHIR</span><b id="lastUpdate">—</b></div>
  </div>
@@ -29,7 +29,7 @@ button,input,select{font:inherit}button{cursor:pointer}.app{max-width:1180px;mar
  <main>
   <section class="panel">
    <div class="panelhead"><div><div class="paneltitle">PRICE ACTION CHART</div><div class="subtle">Candlestick · XAU/USD</div></div><div class="tfbar" id="timeframes"><button class="tf" data-tf="M5">M5</button><button class="tf" data-tf="M15">M15</button><button class="tf active" data-tf="M30">M30</button><button class="tf" data-tf="H1">H1</button><button class="tf" data-tf="H4">H4</button></div></div>
-   <div class="chartwrap"><canvas id="chart" aria-label="Grafik candlestick XAU/USD"></canvas><div class="chartnote"><span id="chartStatus">Chart belum menerima data</span><span>Feed: OANDA melalui backend</span></div></div>
+   <div class="chartwrap"><div id="tradingview_chart" style="width:100%;height:390px"></div><div class="chartnote"><span id="chartStatus">Memuat chart OANDA di TradingView</span><span>Chart: OANDA:XAUUSD · Live price: BiQuote</span></div></div>
    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" id="refreshBtn">↻ Perbarui Data</button><button class="btn" id="analyzeBtn">⌁ Analisa Struktur</button></div>
    <div class="notice" id="setupNotice">Belum terhubung ke backend OANDA. Masukkan URL backend pada konfigurasi di bagian bawah file sebelum dipakai. Tidak ada harga contoh yang ditampilkan sebagai harga live.</div>
   </section>
@@ -76,41 +76,45 @@ button,input,select{font:inherit}button{cursor:pointer}.app{max-width:1180px;mar
 <nav class="bottom"><div class="nav"><button class="active" data-nav="overview"><span>⌂</span>Overview</button><button data-nav="chart"><span>▥</span>Chart</button><button data-nav="analysis"><span>⌁</span>Analisa</button><button data-nav="history"><span>◷</span>Riwayat</button><button data-nav="settings"><span>⚙</span>Setelan</button></div></nav>
 <script>
 /* Set to your deployed Worker URL. Never put the OANDA token in this public HTML. */
-const CONFIG = { OANDA_PROXY_URL: "" };
+const CONFIG = { BIQUOTE_BASE_URL: "https://biquote.io/api", LIVE_POLL_MS: 15000, CANDLE_REFRESH_MS: 60000 };
 const $ = id => document.getElementById(id);
-let timeframe = "M30", candles = [], previousClose = null, historyItems = [];
-const granularities = {M5:"M5",M15:"M15",M30:"M30",H1:"H1",H4:"H4"};
+let timeframe = "M30", candles = [], previousClose = null, historyItems = [], quoteTimer = null, candleTimer = null;
+const biquoteIntervals = {M5:"5m",M15:"15m",M30:"30m",H1:"1h",H4:"4h"};
+const tradingViewIntervals = {M5:"5",M15:"15",M30:"30",H1:"60",H4:"240"};
 const fmt = n => Number.isFinite(n) ? n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:3}) : "—";
 function setConnection(ok,text){$("liveDot").classList.toggle("on",ok);$("connectionText").textContent=text;}
 function message(text){$("setupNotice").textContent=text;}
-function resizeCanvas(){const c=$("chart"),r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;c.width=Math.max(1,Math.floor(r.width*dpr));c.height=Math.max(1,Math.floor(r.height*dpr));drawChart();}
-function drawChart(){
- const c=$("chart"),ctx=c.getContext("2d"),w=c.width,h=c.height;if(!w||!h)return;const dpr=window.devicePixelRatio||1;ctx.clearRect(0,0,w,h);ctx.fillStyle="#080d15";ctx.fillRect(0,0,w,h);
- const pad={l:8,r:65,t:16,b:18},cw=w-pad.l-pad.r,ch=h-pad.t-pad.b;
- ctx.strokeStyle="#1b2636";ctx.lineWidth=1*dpr;for(let i=0;i<=4;i++){let y=pad.t+ch*i/4;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();}
- if(!candles.length){ctx.fillStyle="#77869a";ctx.font=`${12*dpr}px system-ui`;ctx.textAlign="center";ctx.fillText("Data candle OANDA akan muncul di sini",w/2,h/2);ctx.textAlign="left";return;}
- const shown=candles.slice(-75),lo=Math.min(...shown.map(x=>x.l)),hi=Math.max(...shown.map(x=>x.h)),range=(hi-lo)||1,yy=p=>pad.t+(hi-p)/range*ch;
- ctx.fillStyle="#8794a8";ctx.font=`${10*dpr}px system-ui`;ctx.textAlign="left";for(let i=0;i<=4;i++){let p=hi-range*i/4;ctx.fillText(fmt(p),w-pad.r+7*dpr,pad.t+ch*i/4+3*dpr);}
- const slot=cw/shown.length,bodyW=Math.max(2*dpr,slot*.58);
- shown.forEach((k,i)=>{let x=pad.l+i*slot+slot/2,up=k.c>=k.o,col=up?"#36d6a0":"#ff647c";ctx.strokeStyle=col;ctx.lineWidth=Math.max(1,dpr);ctx.beginPath();ctx.moveTo(x,yy(k.h));ctx.lineTo(x,yy(k.l));ctx.stroke();ctx.fillStyle=col;let y=Math.min(yy(k.o),yy(k.c)),bh=Math.max(1.5*dpr,Math.abs(yy(k.o)-yy(k.c)));ctx.fillRect(x-bodyW/2,y,bodyW,bh);});
- const last=shown[shown.length-1].c,y=yy(last);ctx.setLineDash([4*dpr,4*dpr]);ctx.strokeStyle="#d8ad55";ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="#d8ad55";ctx.fillRect(w-pad.r+2*dpr,y-8*dpr,pad.r-4*dpr,16*dpr);ctx.fillStyle="#17120a";ctx.font=`bold ${9*dpr}px system-ui`;ctx.fillText(fmt(last),w-pad.r+5*dpr,y+3*dpr);
+function setTradingViewChart(){
+ const host=$("tradingview_chart"); if(!host)return; host.innerHTML="";
+ const container=document.createElement("div");container.className="tradingview-widget-container";container.style="height:390px;width:100%";
+ const widget=document.createElement("div");widget.className="tradingview-widget-container__widget";widget.style="height:calc(100% - 32px);width:100%";container.appendChild(widget);
+ const credit=document.createElement("div");credit.style="font-size:10px;padding:5px 8px;color:#8b98aa";credit.innerHTML='<a href="https://www.tradingview.com/" target="_blank" rel="noopener" style="color:#8b98aa">Chart by TradingView</a>';container.appendChild(credit);
+ const script=document.createElement("script");script.src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";script.async=true;
+ script.innerHTML=JSON.stringify({autosize:true,symbol:"OANDA:XAUUSD",interval:tradingViewIntervals[timeframe]||"30",timezone:"Asia/Jakarta",theme:"dark",style:"1",locale:"en",allow_symbol_change:false,calendar:false,hide_side_toolbar:true,withdateranges:false,details:false,hotlist:false,save_image:false,studies:["MASimple@tv-basicstudies"],support_host:"https://www.tradingview.com"});
+ container.appendChild(script);host.appendChild(container);$("chartStatus").textContent=`TradingView OANDA:XAUUSD · ${timeframe}`;
 }
 async function loadData(){
- if(!CONFIG.OANDA_PROXY_URL){setConnection(false,"BELUM TERHUBUNG");message("Belum terhubung ke backend OANDA. Untuk mengaktifkan harga live, deploy file worker.js dan isi CONFIG.OANDA_PROXY_URL dengan URL Worker. Token OANDA tidak boleh dimasukkan ke index.html publik.");$("chartStatus").textContent="Belum ada data live";return;}
- $("refreshBtn").disabled=true;setConnection(false,"MENGAMBIL DATA");message("Menghubungkan ke backend OANDA…");
+ $("refreshBtn").disabled=true;setConnection(false,"MENGAMBIL DATA");
  try{
-  const url=new URL(CONFIG.OANDA_PROXY_URL);url.searchParams.set("granularity",granularities[timeframe]);url.searchParams.set("count","180");
-  const res=await fetch(url.toString(),{cache:"no-store"});if(!res.ok)throw new Error("Backend merespons HTTP "+res.status);
-  const data=await res.json();if(!Array.isArray(data.candles)||!data.candles.length)throw new Error(data.error||"Data candle kosong");
-  candles=data.candles.map(c=>({t:c.time,o:+c.open,h:+c.high,l:+c.low,c:+c.close})).filter(c=>[c.o,c.h,c.l,c.c].every(Number.isFinite));
-  if(candles.length<10)throw new Error("Candle yang diterima terlalu sedikit");
-  setConnection(true,"OANDA TERHUBUNG");$("chartStatus").textContent=`${candles.length} candle diterima · ${timeframe}`;$("lastUpdate").textContent=new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
-  const last=candles[candles.length-1].c;$("lastPrice").textContent=fmt(last);$("levelPrice").textContent=fmt(last);
+  const url=`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD/ohlc?interval=${encodeURIComponent(biquoteIntervals[timeframe])}&limit=180`;
+  const res=await fetch(url,{cache:"no-store"});if(!res.ok)throw new Error("BiQuote OHLC HTTP "+res.status);
+  const data=await res.json();const bars=Array.isArray(data.bars)?data.bars:(Array.isArray(data.candles)?data.candles:[]);
+  candles=bars.map(c=>({t:c.openTime||c.time||c.timestamp,o:Number(c.open),h:Number(c.high),l:Number(c.low),c:Number(c.close)})).filter(c=>[c.o,c.h,c.l,c.c].every(Number.isFinite)).reverse();
+  if(candles.length<25)throw new Error("Data candle BiQuote kurang dari 25 bar");
+  await loadLiveQuote();setConnection(true,"BIQUOTE LIVE");$("chartStatus").textContent=`Chart TradingView OANDA · Analisa BiQuote ${candles.length} candle · ${timeframe}`;
+  $("lastUpdate").textContent=new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
   const day=candles.slice(-Math.min(candles.length,288));$("dayHigh").textContent=fmt(Math.max(...day.map(x=>x.h)));$("dayLow").textContent=fmt(Math.min(...day.map(x=>x.l)));
-  $("priceChange").textContent=previousClose===null?"Data OANDA berhasil diterima":`${last>=previousClose?"▲":"▼"} ${fmt(last-previousClose)} dibanding pembaruan sebelumnya`;previousClose=last;
-  $("tfLabel").textContent=timeframe;message("Data candle berhasil diterima dari backend. Analisa dihitung dari data yang diterima; tetap verifikasi kondisi pasar sebelum trading.");
-  analyze();drawChart();
- }catch(e){setConnection(false,"KONEKSI GAGAL");message("Data live belum tersedia: "+e.message+". Periksa URL Worker, token, nama instrumen, dan izin API OANDA.");$("chartStatus").textContent="Gagal mengambil data";}finally{$("refreshBtn").disabled=false;}
+  $("tfLabel").textContent=timeframe;message("Chart ditampilkan dari TradingView simbol OANDA:XAUUSD. Harga live dan perhitungan indikator menggunakan feed BiQuote; selisih harga antar-sumber mungkin terjadi.");analyze();
+ }catch(e){setConnection(false,"FEED GAGAL");message("Belum berhasil mengambil data BiQuote: "+e.message+". Coba Perbarui Data lagi; jika berulang, feed mungkin sedang tidak tersedia.");$("chartStatus").textContent="Data BiQuote belum tersedia";}
+ finally{$("refreshBtn").disabled=false;}
+}
+async function loadLiveQuote(){
+ const res=await fetch(`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD`,{cache:"no-store"});if(!res.ok)throw new Error("BiQuote live quote HTTP "+res.status);
+ const q=await res.json();const price=Number(q.mid);if(!Number.isFinite(price)||price<=0)throw new Error("Harga mid BiQuote tidak valid");
+ $("lastPrice").textContent=fmt(price);$("levelPrice").textContent=fmt(price);
+ if(q.marketState==="closed"||q.stale){$("priceChange").textContent=`Pasar tutup / harga terakhir · BiQuote · ${q.quoteAgeSeconds??"?"} detik`; }else if(previousClose===null){$("priceChange").textContent=`BiQuote LIVE · mid ${fmt(price)}`;}else{$("priceChange").textContent=`${price>=previousClose?"▲":"▼"} ${fmt(price-previousClose)} sejak pembaruan sebelumnya · BiQuote LIVE`;}
+ previousClose=price; if(Number.isFinite(Number(q.high)))$("dayHigh").textContent=fmt(Number(q.high));if(Number.isFinite(Number(q.low)))$("dayLow").textContent=fmt(Number(q.low));
+ $("lastUpdate").textContent=new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
 }
 function ema(vals,period){if(vals.length<period)return null;let k=2/(period+1),v=vals.slice(0,period).reduce((a,b)=>a+b,0)/period;for(let i=period;i<vals.length;i++)v=vals[i]*k+v*(1-k);return v;}
 function calcRSI(vals,n=14){if(vals.length<n+1)return null;let gain=0,loss=0;for(let i=vals.length-n;i<vals.length;i++){let d=vals[i]-vals[i-1];if(d>=0)gain+=d;else loss-=d;}if(loss===0)return 100;return 100-100/(1+gain/loss);}
@@ -130,12 +134,12 @@ function analyze(){
  const item={time:new Date().toLocaleString("id-ID"),tf:timeframe,price:fmt(last.c),trend,struct};historyItems.unshift(item);historyItems=historyItems.slice(0,10);renderHistory();
 }
 function renderHistory(){const el=$("history");if(!historyItems.length){el.textContent="Belum ada analisa yang disimpan.";return;}el.innerHTML=historyItems.map(x=>`<div class="level"><span>${x.time} · ${x.tf}</span><b>${x.price} · ${x.trend} · ${x.struct}</b></div>`).join("");}
-document.querySelectorAll("[data-tf]").forEach(b=>b.addEventListener("click",()=>{timeframe=b.dataset.tf;document.querySelectorAll("[data-tf]").forEach(x=>x.classList.toggle("active",x===b));$("tfLabel").textContent=timeframe;if(CONFIG.OANDA_PROXY_URL)loadData();else drawChart();}));
-$("refreshBtn").addEventListener("click",loadData);$("analyzeBtn").addEventListener("click",()=>{if(candles.length)analyze();else message("Analisa belum dapat dijalankan karena belum ada data candle OANDA.");});
+document.querySelectorAll("[data-tf]").forEach(b=>b.addEventListener("click",()=>{timeframe=b.dataset.tf;document.querySelectorAll("[data-tf]").forEach(x=>x.classList.toggle("active",x===b));$("tfLabel").textContent=timeframe;setTradingViewChart();loadData();}));
+$("refreshBtn").addEventListener("click",loadData);$("analyzeBtn").addEventListener("click",()=>{if(candles.length)analyze();else message("Analisa belum dapat dijalankan karena candle BiQuote belum tersedia.");});
 $("imageInput").addEventListener("change",e=>{const f=e.target.files?.[0];if(!f)return;if(!f.type.startsWith("image/"))return;const u=URL.createObjectURL(f);$("imagePreview").src=u;$("imagePreview").style.display="block";$("imageText").textContent="Screenshot hanya ditampilkan lokal. Untuk AI vision, sambungkan endpoint AI backend yang aman.";});
 $("clearImage").addEventListener("click",()=>{$("imageInput").value="";$("imagePreview").removeAttribute("src");$("imagePreview").style.display="none";$("imageText").textContent="Pilih screenshot chart untuk pratinjau. Analisa AI gambar membutuhkan endpoint AI terpisah; gambar tidak dikirim ke mana pun oleh halaman ini.";});
 $("clearHistory").addEventListener("click",()=>{historyItems=[];renderHistory();});
-document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x===b));const target=b.dataset.nav;if(target==="chart")document.querySelector(".chartwrap").scrollIntoView({behavior:"smooth",block:"center"});if(target==="analysis")document.querySelector("#biasTitle").scrollIntoView({behavior:"smooth",block:"center"});if(target==="history")document.querySelector("#history").scrollIntoView({behavior:"smooth",block:"center"});if(target==="settings")message("Setelan: isi CONFIG.OANDA_PROXY_URL di index.html dengan URL backend Worker. Jangan letakkan token OANDA di file publik.");if(target==="overview")window.scrollTo({top:0,behavior:"smooth"});}));
-window.addEventListener("resize",resizeCanvas);resizeCanvas();loadData();
+document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x===b));const target=b.dataset.nav;if(target==="chart")document.querySelector(".chartwrap").scrollIntoView({behavior:"smooth",block:"center"});if(target==="analysis")document.querySelector("#biasTitle").scrollIntoView({behavior:"smooth",block:"center"});if(target==="history")document.querySelector("#history").scrollIntoView({behavior:"smooth",block:"center"});if(target==="settings")message("Setelan: chart memakai TradingView OANDA:XAUUSD; harga live dan indikator memakai BiQuote API publik. Tidak perlu token OANDA atau Worker untuk rancangan ini.");if(target==="overview")window.scrollTo({top:0,behavior:"smooth"});}));
+setTradingViewChart();loadData();quoteTimer=setInterval(()=>loadLiveQuote().catch(()=>setConnection(false,"BIQUOTE TERPUTUS")),CONFIG.LIVE_POLL_MS);candleTimer=setInterval(()=>loadData(),CONFIG.CANDLE_REFRESH_MS);
 </script>
 </body></html>
