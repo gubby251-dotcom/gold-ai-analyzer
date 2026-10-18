@@ -1,10 +1,11 @@
 
+
 name: SNR SND Alerts
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "7,12,17,22,27,32,37,42,47,52,57 * * * *"
 
 permissions:
   contents: write
@@ -12,6 +13,7 @@ permissions:
 concurrency:
   group: snr-snd-alerts
   cancel-in-progress: false
+
 
 jobs:
   scan:
