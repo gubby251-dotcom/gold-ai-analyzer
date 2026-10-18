@@ -115,7 +115,7 @@ button,input,select{font:inherit}button{cursor:pointer}.app{max-width:1180px;mar
 /* Harga/indikator memakai feed publik. Analisis screenshot memakai Puter.js di sisi klien; tidak ada API key rahasia di HTML. */
 const CONFIG = { BIQUOTE_BASE_URL: "https://biquote.io/api", LIVE_POLL_MS: 15000, CANDLE_REFRESH_MS: 60000 };
 const $ = id => document.getElementById(id);
-let timeframe = "M30", candles = [], previousClose = null, historyItems = [], quoteTimer = null, candleTimer = null;
+let timeframe = "M30", candles = [], previousClose = null, historyItems = [], quoteTimer = null, candleTimer = null, lastHistoryKey = "", lastValidQuoteAt = 0;
 const biquoteIntervals = {M5:"5m",M15:"15m",M30:"30m",H1:"1h",H4:"4h"};
 const tradingViewIntervals = {M5:"5",M15:"15",M30:"30",H1:"60",H4:"240"};
 const fmt = n => Number.isFinite(n) ? n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:3}) : "—";
@@ -126,6 +126,11 @@ function setMarketState(state,detail){
  const badge=$("marketStatus");
  if(badge){badge.textContent=state;badge.style.color=state==="MARKET CLOSED"?"#f2d38a":state==="LIVE"?"#36d6a0":"#ffbd65";}
  if(detail)setText("priceChange",detail);
+}
+function markQuoteUnavailable(detail){
+ setConnection(false,"HARGA LIVE TIDAK TERSEDIA");
+ setMarketState("FEED ERROR",detail||"Harga live belum tervalidasi; jangan gunakan harga terakhir sebagai harga sekarang.");
+ setText("chartStatus",`Chart OANDA:XAUUSD · ${timeframe} · Harga/analisis dari BiQuote; harga chart dapat berbeda.`);
 }
 function jakartaParts(date=new Date()){
  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Jakarta",weekday:"short",hour:"2-digit",hourCycle:"h23"}).formatToParts(date);
@@ -161,7 +166,7 @@ function setTradingViewChart(){
  const widget=document.createElement("div");widget.className="tradingview-widget-container__widget";widget.style="height:100%;width:100%";container.appendChild(widget);
  const script=document.createElement("script");script.src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";script.async=true;
  script.innerHTML=JSON.stringify({autosize:true,symbol:"OANDA:XAUUSD",interval:tradingViewIntervals[timeframe]||"30",timezone:"Asia/Jakarta",theme:"dark",style:"1",locale:"en",allow_symbol_change:false,calendar:false,hide_side_toolbar:true,withdateranges:false,details:false,hotlist:false,save_image:false,studies:["MASimple@tv-basicstudies"],support_host:"https://www.tradingview.com"});
- container.appendChild(script);host.appendChild(container);$("chartStatus").textContent=`Chart OANDA:XAUUSD · ${timeframe} · Data candle/harga: BiQuote`;
+ container.appendChild(script);host.appendChild(container);$("chartStatus").textContent=`Chart OANDA:XAUUSD · ${timeframe} · Chart dari TradingView/OANDA; harga dan analisis dari BiQuote. Harga dapat berbeda.`;
 }
 async function loadData(){
  $("refreshBtn").disabled=true;setConnection(false,"MENGAMBIL DATA");
@@ -170,7 +175,9 @@ async function loadData(){
   const url=`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD/ohlc?interval=${encodeURIComponent(biquoteIntervals[timeframe])}&limit=180`;
   const res=await fetch(url,{cache:"no-store"});if(!res.ok)throw new Error("BiQuote OHLC HTTP "+res.status);
   const data=await res.json();const bars=Array.isArray(data.bars)?data.bars:(Array.isArray(data.candles)?data.candles:[]);
-  const parsed=bars.map(c=>({t:c.openTime||c.time||c.timestamp,o:Number(c.open),h:Number(c.high),l:Number(c.low),c:Number(c.close),isOpen:c.isOpen===true})).filter(c=>[c.o,c.h,c.l,c.c].every(Number.isFinite)).reverse();
+  const parsed=bars.map(c=>({t:c.openTime||c.time||c.timestamp,o:Number(c.open),h:Number(c.high),l:Number(c.low),c:Number(c.close),isOpen:c.isOpen===true})).filter(c=>[c.o,c.h,c.l,c.c].every(Number.isFinite)&&c.h>=Math.max(c.o,c.c)&&c.l<=Math.min(c.o,c.c)&&c.h>=c.l);
+  // Sort by timestamp rather than assuming the provider order.
+  parsed.sort((a,b)=>{const ta=typeof a.t==="number"?a.t:Date.parse(a.t),tb=typeof b.t==="number"?b.t:Date.parse(b.t);return Number.isFinite(ta)&&Number.isFinite(tb)?ta-tb:0;});
   candles=parsed.filter(c=>!c.isOpen);
   if(candles.length<25)throw new Error("Candle tertutup BiQuote kurang dari 25 bar");
   candleOK=true;
@@ -180,15 +187,15 @@ async function loadData(){
   analyze();
   try{
    await loadLiveQuote();setConnection(true,"CANDLE + HARGA VALID");setMarketState("LIVE","Harga live BiQuote tervalidasi.");
-   message("Candle tertutup BiQuote berhasil dimuat. Harga live hanya ditampilkan bila kutipan terbaru valid. Chart memakai TradingView OANDA:XAUUSD; sumber berbeda dapat menghasilkan selisih harga.");
+   message("Candle tertutup BiQuote berhasil dimuat. Harga live hanya dianggap valid setelah kutipan terbaru lolos pemeriksaan. Chart tetap TradingView OANDA:XAUUSD; harga chart OANDA dapat berbeda dari harga/analisis BiQuote.");
   }catch(qe){
    const closed=await tryClosedStatus();
-   if(!closed){setConnection(false,"HARGA LIVE TIDAK TERSEDIA");setMarketState("FEED ERROR","Harga live belum tervalidasi; jangan gunakan harga lama sebagai harga sekarang.");
-    message("Data candle berhasil dimuat dan indikator dihitung, tetapi harga live BiQuote gagal atau kedaluwarsa. Pasar belum dapat dipastikan tutup; periksa feed atau koneksi.");}
+   if(!closed){markQuoteUnavailable("Harga live tidak tervalidasi; harga terakhir yang terlihat bukan harga live.");
+    message("Data candle tersedia, tetapi kutipan live BiQuote gagal atau kedaluwarsa. Pasar belum dapat dipastikan tutup. Jangan gunakan harga terakhir sebagai harga sekarang.");}
   }
  }catch(e){
   const closed=await tryClosedStatus();
-  if(!closed){setConnection(false,"CANDLE / FEED ERROR");setMarketState("FEED ERROR","Harga live dan/atau candle belum tersedia.");
+  if(!closed){markQuoteUnavailable("Harga live/candle belum tervalidasi; jangan gunakan data lama untuk keputusan.");
    message("Data candle BiQuote belum berhasil dimuat: "+e.message+". Ini belum membuktikan pasar tutup; periksa koneksi atau layanan feed.");
    setText("chartStatus","Data candle BiQuote belum tersedia");}
  }finally{const refresh=$("refreshBtn");if(refresh)refresh.disabled=false;}
@@ -205,7 +212,7 @@ async function loadLiveQuote(){
  const price=Number(q.mid);if(!Number.isFinite(price)||price<=0)throw new Error("Harga mid BiQuote tidak valid");
  const age=Number(q.quoteAgeSeconds);const stamped=q.timestamp?Date.parse(q.timestamp):NaN;
  if(q.stale===true||(Number.isFinite(age)&&age>300)||(Number.isFinite(stamped)&&Date.now()-stamped>300000))throw new Error("Kutipan BiQuote lebih dari 5 menit");
- setText("lastPrice",fmt(price));setText("levelPrice",fmt(price));
+ setText("lastPrice",fmt(price));setText("levelPrice",fmt(price));lastValidQuoteAt=Date.now();
  if(previousClose===null)setText("priceChange",`BiQuote LIVE · mid ${fmt(price)}`);
  else setText("priceChange",`${price>=previousClose?"▲":"▼"} ${fmt(price-previousClose)} sejak pembaruan sebelumnya · BiQuote LIVE`);
  previousClose=price;if(Number.isFinite(Number(q.high)))setText("dayHigh",fmt(Number(q.high)));if(Number.isFinite(Number(q.low)))setText("dayLow",fmt(Number(q.low)));
@@ -215,19 +222,43 @@ async function loadLiveQuote(){
 function ema(vals,period){if(vals.length<period)return null;let k=2/(period+1),v=vals.slice(0,period).reduce((a,b)=>a+b,0)/period;for(let i=period;i<vals.length;i++)v=vals[i]*k+v*(1-k);return v;}
 function calcRSI(vals,n=14){if(vals.length<n+1)return null;let gain=0,loss=0;for(let i=vals.length-n;i<vals.length;i++){let d=vals[i]-vals[i-1];if(d>=0)gain+=d;else loss-=d;}if(loss===0)return 100;return 100-100/(1+gain/loss);}
 function calcATR(data,n=14){if(data.length<n+1)return null;let tr=[];for(let i=1;i<data.length;i++)tr.push(Math.max(data[i].h-data[i].l,Math.abs(data[i].h-data[i-1].c),Math.abs(data[i].l-data[i-1].c)));return tr.slice(-n).reduce((a,b)=>a+b,0)/Math.min(n,tr.length);}
+// Level struktural: pivot terkonfirmasi, dikelompokkan jika berdekatan, minimal dua reaksi.
+// Pivot menggunakan candle kiri/kanan sehingga level baru baru muncul setelah candle konfirmasi tutup.
+function findStructuralLevels(data, atrValue, currentPrice){
+ const left=2,right=2, start=Math.max(left,data.length-120), pivots=[];
+ if(!Number.isFinite(atrValue)||atrValue<=0||data.length<left+right+10)return {support:null,resistance:null,highPivots:[],lowPivots:[]};
+ for(let i=start;i<data.length-right;i++){
+  let isHigh=true,isLow=true;
+  for(let j=1;j<=left;j++){if(data[i].h<=data[i-j].h)isHigh=false;if(data[i].l>=data[i-j].l)isLow=false;}
+  for(let j=1;j<=right;j++){if(data[i].h<data[i+j].h)isHigh=false;if(data[i].l>data[i+j].l)isLow=false;}
+  if(isHigh)pivots.push({price:data[i].h,type:'R',index:i});
+  if(isLow)pivots.push({price:data[i].l,type:'S',index:i});
+ }
+ const tolerance=Math.max(atrValue*0.20, currentPrice*0.00015);
+ function cluster(type){
+  const raw=pivots.filter(p=>p.type===type).sort((a,b)=>a.price-b.price), groups=[];
+  for(const p of raw){let g=groups.find(x=>Math.abs(x.price/x.count-p.price)<=tolerance);if(!g)groups.push(g={price:0,count:0,indices:[],lastIndex:-1});g.price+=p.price;g.count++;g.indices.push(p.index);g.lastIndex=Math.max(g.lastIndex,p.index);}
+  return groups.map(g=>({...g,price:g.price/g.count})).filter(g=>g.count>=2).sort((a,b)=>b.lastIndex-a.lastIndex);
+ }
+ const supports=cluster('S').filter(g=>g.price<currentPrice).sort((a,b)=>b.price-a.price);
+ const resistances=cluster('R').filter(g=>g.price>currentPrice).sort((a,b)=>a.price-b.price);
+ return {support:supports[0]||null,resistance:resistances[0]||null,highPivots:pivots.filter(p=>p.type==='R').map(p=>p.price),lowPivots:pivots.filter(p=>p.type==='S').map(p=>p.price)};
+}
 function analyze(){
  if(candles.length<25)return;const closes=candles.map(c=>c.c),last=candles[candles.length-1],e9=ema(closes,9),e21=ema(closes,21),r=calcRSI(closes),a=calcATR(candles);
- const recent=candles.slice(-20),res=Math.max(...recent.map(c=>c.h)),sup=Math.min(...recent.map(c=>c.l));
- const highs=[],lows=[];for(let i=Math.max(2,candles.length-30);i<candles.length-2;i++){if(candles[i].h>candles[i-1].h&&candles[i].h>candles[i+1].h)highs.push(candles[i].h);if(candles[i].l<candles[i-1].l&&candles[i].l<candles[i+1].l)lows.push(candles[i].l);}
+ const currentPrice=Number.isFinite(Number($('lastPrice').textContent.replace(/,/g,'')))?Number($('lastPrice').textContent.replace(/,/g,'')):last.c;
+ const levels=findStructuralLevels(candles,a,currentPrice),res=levels.resistance?.price??null,sup=levels.support?.price??null;
+ const highs=levels.highPivots,lows=levels.lowPivots;
  let struct="Sideways",desc="Struktur belum membentuk arah konsisten";if(highs.length>=2&&lows.length>=2){const hh=highs.at(-1)>highs.at(-2),hl=lows.at(-1)>lows.at(-2),lh=highs.at(-1)<highs.at(-2),ll=lows.at(-1)<lows.at(-2);if(hh&&hl){struct="HH + HL";desc="Higher High dan Higher Low";}else if(lh&&ll){struct="LH + LL";desc="Lower High dan Lower Low";}}
  const trend=e9>e21?"Bullish":e9<e21?"Bearish":"Netral",mom=r>=55?"Momentum bullish":r<=45?"Momentum bearish":"Momentum netral";
  $("structure").textContent=struct;$("structureDesc").textContent=desc;$("rsi").textContent=r.toFixed(1);$("rsiDesc").textContent=r>=70?"Overbought":r<=30?"Oversold":"Rentang normal";$("ema").textContent=`${fmt(e9)} / ${fmt(e21)}`;$("emaDesc").textContent=`EMA 9 ${trend==="Bullish"?"di atas":trend==="Bearish"?"di bawah":"dekat"} EMA 21`;
- $("resistance").textContent=fmt(res);$("support").textContent=fmt(sup);$("atr").textContent=fmt(a);$("supply").textContent=`${fmt(res-a*.25)} – ${fmt(res)}`;$("demand").textContent=`${fmt(sup)} – ${fmt(sup+a*.25)}`;
- $("trend").textContent=trend;$("momentum").textContent=mom;$("validation").textContent="Candle live tersedia";$("confidence").textContent=(trend!=="Netral"&&r>40&&r<60)?"Sedang":"Terbatas";
+ $("resistance").textContent=res===null?"Belum terkonfirmasi":fmt(res);$("support").textContent=sup===null?"Belum terkonfirmasi":fmt(sup);$("atr").textContent=fmt(a);
+ $("supply").textContent=res===null?"Belum terkonfirmasi":`${fmt(res-a*.20)} – ${fmt(res)}`;$("demand").textContent=sup===null?"Belum terkonfirmasi":`${fmt(sup)} – ${fmt(sup+a*.20)}`;
+ $("trend").textContent=trend;$("momentum").textContent=mom;$("validation").textContent="Candle tertutup BiQuote; kutipan live diperiksa terpisah";$("confidence").textContent=(trend!=="Netral"&&r>40&&r<60)?"Sedang":"Terbatas";
  const bull=trend==="Bullish"&&struct==="HH + HL";const bear=trend==="Bearish"&&struct==="LH + LL";
  $("biasTitle").textContent=bull?"Bias bullish":bear?"Bias bearish":"Belum ada konfirmasi kuat";$("biasSub").textContent=`${timeframe} · EMA + RSI + struktur`; $("biasicon").textContent=bull?"↗":bear?"↘":"⌁";
- $("bullScenario").textContent=`Skenario bullish lebih kuat jika harga menembus ${fmt(res)} dan bertahan di atasnya.`;$("bearScenario").textContent=`Skenario bearish lebih kuat jika harga menembus ${fmt(sup)} dan bertahan di bawahnya.`;$("watchScenario").textContent=`Amati area ${fmt(sup)} sampai ${fmt(res)}; hindari mengejar harga di tengah rentang.`;
- const item={time:new Date().toLocaleString("id-ID"),tf:timeframe,price:fmt(last.c),trend,struct};historyItems.unshift(item);historyItems=historyItems.slice(0,10);renderHistory();
+ $("bullScenario").textContent=res===null?"Belum ada resistance struktural terkonfirmasi; tunggu pivot dan reaksi tambahan.":`Skenario bullish perlu candle tertutup menembus ${fmt(res)} dan bertahan di atasnya.`;$("bearScenario").textContent=sup===null?"Belum ada support struktural terkonfirmasi; tunggu pivot dan reaksi tambahan.":`Skenario bearish perlu candle tertutup menembus ${fmt(sup)} dan bertahan di bawahnya.`;$("watchScenario").textContent=(sup===null||res===null)?"NO TRADE untuk level struktural: support/resistance belum cukup terkonfirmasi.":`Amati area ${fmt(sup)} sampai ${fmt(res)}; level dipilih dari pivot terkonfirmasi dengan minimal dua reaksi.`;
+ const historyKey=[timeframe,last.t||"",last.c,trend,struct].join("|");if(historyKey!==lastHistoryKey){const item={time:new Date().toLocaleString("id-ID"),tf:timeframe,price:fmt(last.c),trend,struct};historyItems.unshift(item);historyItems=historyItems.slice(0,10);lastHistoryKey=historyKey;renderHistory();}
 }
 function renderHistory(){const el=$("history");if(!historyItems.length){el.textContent="Belum ada analisa yang disimpan.";return;}el.innerHTML=historyItems.map(x=>`<div class="level"><span>${x.time} · ${x.tf}</span><b>${x.price} · ${x.trend} · ${x.struct}</b></div>`).join("");}
 document.querySelectorAll("[data-tf]").forEach(b=>b.addEventListener("click",()=>{timeframe=b.dataset.tf;document.querySelectorAll("[data-tf]").forEach(x=>x.classList.toggle("active",x===b));$("tfLabel").textContent=timeframe;setTradingViewChart();loadData();}));
@@ -266,7 +297,7 @@ Jangan memaksakan sinyal BUY/SELL. Jangan mengklaim harga live dari screenshot s
  finally{button.disabled=false;button.textContent="Analisis Screenshot dengan AI";}
 });
 $("clearHistory").addEventListener("click",()=>{historyItems=[];renderHistory();});
-document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x===b));const target=b.dataset.nav;if(target==="chart")document.querySelector(".chartwrap").scrollIntoView({behavior:"smooth",block:"center"});if(target==="analysis")document.querySelector("#biasTitle").scrollIntoView({behavior:"smooth",block:"center"});if(target==="news")document.querySelector("#newsSection").scrollIntoView({behavior:"smooth",block:"start"});if(target==="history")document.querySelector("#history").scrollIntoView({behavior:"smooth",block:"center"});if(target==="settings")message("Setelan: chart memakai TradingView OANDA:XAUUSD; harga live dan indikator memakai BiQuote API publik. Tidak perlu token OANDA atau Worker untuk rancangan ini.");if(target==="overview")window.scrollTo({top:0,behavior:"smooth"});}));
-setTradingViewChart();loadData();quoteTimer=setInterval(()=>loadLiveQuote().catch(async()=>{const closed=await tryClosedStatus();if(!closed){setConnection(false,"HARGA LIVE TIDAK TERSEDIA");setMarketState("FEED ERROR","Harga live tidak tersedia/kedaluwarsa; harga terakhir bukan harga live.");}}),CONFIG.LIVE_POLL_MS);candleTimer=setInterval(()=>loadData(),CONFIG.CANDLE_REFRESH_MS);
+document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x===b));const target=b.dataset.nav;if(target==="chart")document.querySelector(".chartwrap").scrollIntoView({behavior:"smooth",block:"center"});if(target==="analysis")document.querySelector("#biasTitle").scrollIntoView({behavior:"smooth",block:"center"});if(target==="news")document.querySelector("#newsSection").scrollIntoView({behavior:"smooth",block:"start"});if(target==="history")document.querySelector("#history").scrollIntoView({behavior:"smooth",block:"center"});if(target==="settings")message("Setelan: chart visual tetap TradingView OANDA:XAUUSD. Harga live, candle, dan analisis berasal dari BiQuote; selisih harga antar-feed mungkin terjadi. Jika data tidak valid/kedaluwarsa, jangan anggap sebagai harga live.");if(target==="overview")window.scrollTo({top:0,behavior:"smooth"});}));
+setTradingViewChart();loadData();quoteTimer=setInterval(()=>loadLiveQuote().catch(async()=>{const closed=await tryClosedStatus();if(!closed){setConnection(false,"HARGA LIVE TIDAK TERSEDIA");markQuoteUnavailable("Harga live tidak tersedia/kedaluwarsa; harga terakhir bukan harga live.");}}),CONFIG.LIVE_POLL_MS);candleTimer=setInterval(()=>loadData(),CONFIG.CANDLE_REFRESH_MS);
 </script>
 </body></html>
