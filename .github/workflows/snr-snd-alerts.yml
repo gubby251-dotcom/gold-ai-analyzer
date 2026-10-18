@@ -4,10 +4,10 @@ name: SNR SND Alerts
 on:
   workflow_dispatch:
   schedule:
-    - cron: "1-59/5 * * * *"
+    - cron: "*/5 * * * *"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: snr-snd-alerts
@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -32,9 +34,24 @@ jobs:
           npm init -y
           npm install firebase-admin
 
+      - name: Restore scanner state
+        uses: actions/cache/restore@v4
+        with:
+          path: snr-snd-state.json
+          key: snr-snd-state-${{ github.run_id }}
+          restore-keys: |
+            snr-snd-state-
+
       - name: Run SNR SND scanner
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           BIQUOTE_BASE_URL: https://biquote.io/api
         run: node scanner/snr-snd-alerts.mjs
+
+      - name: Save scanner state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: snr-snd-state.json
+          key: snr-snd-state-${{ github.run_id }}
