@@ -1,0 +1,40 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#172235"/>
+    <stop offset="1" stop-color="#070a11"/>
+  </linearGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#fff0a8"/>
+    <stop offset=".5" stop-color="#e8bd57"/>
+    <stop offset="1" stop-color="#a87520"/>
+  </linearGradient>
+</defs>
+<rect width="512" height="512" rx="95" fill="url(#bg)"/>
+<rect x="18" y="18" width="476" height="476" rx="80"
+ fill="none" stroke="url(#gold)" stroke-width="5"/>
+<g stroke="url(#gold)" stroke-width="12" stroke-linecap="round">
+  <path d="M90 300V245 M125 275V185 M160 250V145
+           M350 250V165 M385 215V130 M420 185V90"/>
+</g>
+<path d="M320 150C300 120 270 108 232 108
+C168 108 126 140 126 184
+C126 220 153 241 211 258L250 270
+C279 279 294 289 294 306
+C294 326 272 339 239 339
+C202 339 174 323 157 297L111 329
+C136 369 180 391 238 391
+C307 391 353 355 353 307
+C353 267 326 246 267 228L224 215
+C196 207 183 198 183 183
+C183 166 203 154 232 154
+C267 154 292 169 306 190Z"
+fill="url(#gold)"/>
+<text x="256" y="432" text-anchor="middle"
+font-family="Arial,sans-serif" font-size="25"
+font-weight="bold" letter-spacing="3" fill="#fff0a8">SEBU DOLLAR</text>
+<text x="256" y="464" text-anchor="middle"
+font-family="Arial,sans-serif" font-size="22"
+font-weight="bold" letter-spacing="5" fill="#d8ad55">ANALYZER</text>
+</svg>
