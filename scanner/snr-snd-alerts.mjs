@@ -188,8 +188,17 @@ function scanTimeframe(tf, candles) {
   const last = candles[candles.length - 1];
   const previous = candles[candles.length - 2];
   const zones = findZones(candles, atr, last.c);
-  const tolerance = atr * 0.20;
-  const events = [];
+const tolerance = Math.max(atr * 0.20, last.c * 0.00015);
+const events = [];
+
+console.log(
+  `${tf} detail: ` +
+  `close=${last.c.toFixed(3)}, ` +
+  `ATR=${atr.toFixed(3)}, ` +
+  `support=${zones.support === null ? "TIDAK DITEMUKAN" : zones.support.toFixed(3)}, ` +
+  `resistance=${zones.resistance === null ? "TIDAK DITEMUKAN" : zones.resistance.toFixed(3)}, ` +
+  `tolerance=${tolerance.toFixed(3)}`
+);
 
   if (zones.support !== null) {
     const level = zones.support;
