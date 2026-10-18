@@ -168,6 +168,15 @@ function findZones(candles, atr, price) {
       .filter((g) => g.count >= 2)
       .map((g) => g.sum / g.count);
   }
+  console.log(
+  `Pivot diagnostik: total=${pivots.length}, ` +
+  `pivotHigh=${pivots.filter(p => p.type === "R").length}, ` +
+  `pivotLow=${pivots.filter(p => p.type === "S").length}, ` +
+  `kelompokResistance=${cluster("R").length}, ` +
+  `kelompokSupport=${cluster("S").length}, ` +
+  `harga=${price.toFixed(3)}, ` +
+  `toleransi=${tolerance.toFixed(3)}`
+);
 
   const support = cluster("S")
     .filter((level) => level < price)
