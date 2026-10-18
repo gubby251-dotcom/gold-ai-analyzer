@@ -14,6 +14,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,6 +28,16 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Verify Android SDK
+        shell: bash
+        run: |
+          if [ ! -d "$ANDROID_HOME" ]; then
+            echo "Android SDK tidak ditemukan: $ANDROID_HOME"
+            exit 1
+          fi
+          echo "Android SDK ditemukan."
+          ls "$ANDROID_HOME"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -32,6 +46,8 @@ jobs:
       - name: Create Android project
         shell: bash
         run: |
+          set -e
+
           mkdir -p app/src/main/java/com/sebudollar/analyzer
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/mipmap-mdpi
@@ -39,6 +55,17 @@ jobs:
           mkdir -p app/src/main/res/mipmap-xhdpi
           mkdir -p app/src/main/res/mipmap-xxhdpi
           mkdir -p app/src/main/res/mipmap-xxxhdpi
+
+          test -f assets/logo.png || {
+            echo "ERROR: assets/logo.png tidak ditemukan"
+            exit 1
+          }
+
+          cp assets/logo.png app/src/main/res/mipmap-mdpi/ic_launcher.png
+          cp assets/logo.png app/src/main/res/mipmap-hdpi/ic_launcher.png
+          cp assets/logo.png app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          cp assets/logo.png app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          cp assets/logo.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
@@ -48,6 +75,7 @@ jobs:
                   gradlePluginPortal()
               }
           }
+
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
@@ -55,19 +83,26 @@ jobs:
                   mavenCentral()
               }
           }
+
           rootProject.name = "SebuDollarAnalyzer"
           include(":app")
           EOF
 
-          echo "plugins { id 'com.android.application' version '8.7.3' apply false }" > build.gradle
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
 
           cat > app/build.gradle <<'EOF'
           plugins {
               id 'com.android.application'
           }
+
           android {
               namespace 'com.sebudollar.analyzer'
               compileSdk 35
+
               defaultConfig {
                   applicationId 'com.sebudollar.analyzer'
                   minSdk 23
@@ -81,14 +116,18 @@ jobs:
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET"/>
+
               <application
                   android:theme="@style/AppTheme"
                   android:label="SEBU DOLLAR ANALYZER"
                   android:icon="@mipmap/ic_launcher"
                   android:usesCleartextTraffic="true">
+
                   <activity
                       android:name=".MainActivity"
+                      android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
                       android:exported="true">
+
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
@@ -100,7 +139,8 @@ jobs:
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
-              <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+              <style name="AppTheme"
+                  parent="@android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
                   <item name="android:colorAccent">#D4AF37</item>
                   <item name="android:windowActionModeOverlay">true</item>
@@ -120,32 +160,49 @@ jobs:
           import android.webkit.WebViewClient;
           import android.webkit.WebChromeClient;
           import android.webkit.WebSettings;
-          import android.view.View;
-          import android.view.Window;
-          import android.view.WindowManager;
           import android.graphics.Color;
 
           public class MainActivity extends Activity {
-              WebView webView;
+              private WebView webView;
 
               @Override
               public void onCreate(Bundle state) {
                   super.onCreate(state);
-                  getWindow().setStatusBarColor(Color.rgb(27,27,27));
-                  getWindow().setNavigationBarColor(Color.rgb(27,27,27));
+
+                  getWindow().setStatusBarColor(Color.rgb(27, 27, 27));
+                  getWindow().setNavigationBarColor(Color.rgb(27, 27, 27));
 
                   webView = new WebView(this);
+
                   WebSettings settings = webView.getSettings();
                   settings.setJavaScriptEnabled(true);
                   settings.setDomStorageEnabled(true);
                   settings.setDatabaseEnabled(true);
                   settings.setLoadsImagesAutomatically(true);
-                  settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+                  settings.setMixedContentMode(
+                      WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                  );
 
                   webView.setWebViewClient(new WebViewClient());
                   webView.setWebChromeClient(new WebChromeClient());
+
                   setContentView(webView);
-                  webView.loadUrl("https://gubby251-dotcom.github.io/gold-ai-analyzer/");
+
+                  if (state != null) {
+                      webView.restoreState(state);
+                  } else {
+                      webView.loadUrl(
+                          "https://gubby251-dotcom.github.io/gold-ai-analyzer/"
+                      );
+                  }
+              }
+
+              @Override
+              protected void onSaveInstanceState(Bundle outState) {
+                  super.onSaveInstanceState(outState);
+                  if (webView != null) {
+                      webView.saveState(outState);
+                  }
               }
 
               @Override
@@ -156,30 +213,24 @@ jobs:
                       super.onBackPressed();
                   }
               }
+
+              @Override
+              protected void onDestroy() {
+                  if (webView != null) {
+                      webView.destroy();
+                      webView = null;
+                  }
+                  super.onDestroy();
+              }
           }
           EOF
 
-          python3 - <<'PY'
-          from PIL import Image
-          import os
-          src = "assets/logo.png"
-          if not os.path.exists(src):
-              raise SystemExit("ERROR: assets/logo.png tidak ditemukan")
-          img = Image.open(src).convert("RGBA")
-          sizes = {
-              "mdpi": 48,
-              "hdpi": 72,
-              "xhdpi": 96,
-              "xxhdpi": 144,
-              "xxxhdpi": 192
-          }
-          for density, size in sizes.items():
-              out = img.resize((size, size), Image.Resampling.LANCZOS)
-              out.save(f"app/src/main/res/mipmap-{density}/ic_launcher.png")
-          PY
-
       - name: Build APK
-        run: gradle assembleDebug
+        shell: bash
+        run: |
+          set -e
+          gradle assembleDebug
+          test -f app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
