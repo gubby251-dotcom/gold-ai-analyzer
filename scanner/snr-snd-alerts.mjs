@@ -1,4 +1,3 @@
-
 import fs from "node:fs";
 
 const BASE = (
@@ -17,7 +16,10 @@ const TIMEFRAMES = [
 
 function readState() {
   try {
-    return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+    const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+    return state && state.sent && typeof state.sent === "object"
+      ? state
+      : { sent: {} };
   } catch {
     return { sent: {} };
   }
@@ -49,15 +51,12 @@ async function getCandles(interval, minutes) {
   }
 
   const json = await response.json();
-
   const rows = Array.isArray(json)
     ? json
     : json.bars || json.candles || json.data || json.ohlc;
 
   if (!Array.isArray(rows)) {
-    throw new Error(
-      `Format respons candle ${interval} belum dikenali. Periksa respons API BiQuote.`
-    );
+    throw new Error(`Format respons candle ${interval} belum dikenali.`);
   }
 
   const candles = rows.map((row) => ({
@@ -83,7 +82,6 @@ async function getCandles(interval, minutes) {
     (c, i, arr) => i === 0 || c.t !== arr[i - 1].t
   );
 
-  // Jangan pernah menilai candle yang belum selesai.
   const now = Date.now();
   const closed = unique.filter(
     (c) => c.t + minutes * 60000 <= now
@@ -91,7 +89,7 @@ async function getCandles(interval, minutes) {
 
   if (closed.length < 30) {
     throw new Error(
-      `Candle tertutup ${interval} kurang atau format waktu API salah: ${closed.length}`
+      `Candle tertutup ${interval} kurang atau waktu API salah: ${closed.length}`
     );
   }
 
@@ -122,7 +120,7 @@ function findZones(candles, atr, price) {
   const pivots = [];
   const start = Math.max(2, candles.length - 120);
 
-  // Pivot hanya sah setelah dua candle di sebelah kanannya selesai.
+  // Pivot baru dianggap valid setelah dua candle di sisi kanan selesai.
   for (let i = start; i < candles.length - 2; i++) {
     let isHigh = true;
     let isLow = true;
@@ -168,90 +166,148 @@ function findZones(candles, atr, price) {
       .filter((g) => g.count >= 2)
       .map((g) => g.sum / g.count);
   }
-  console.log(
-  `Pivot diagnostik: total=${pivots.length}, ` +
-  `pivotHigh=${pivots.filter(p => p.type === "R").length}, ` +
-  `pivotLow=${pivots.filter(p => p.type === "S").length}, ` +
-  `kelompokResistance=${cluster("R").length}, ` +
-  `kelompokSupport=${cluster("S").length}, ` +
-  `harga=${price.toFixed(3)}, ` +
-  `toleransi=${tolerance.toFixed(3)}`
-);
 
-  const support = cluster("S")
+  const supportLevels = cluster("S").sort((a, b) => a - b);
+  const resistanceLevels = cluster("R").sort((a, b) => a - b);
+
+  const support = supportLevels
     .filter((level) => level < price)
     .sort((a, b) => b - a)[0] ?? null;
 
-  const resistance = cluster("R")
+  const resistance = resistanceLevels
     .filter((level) => level > price)
     .sort((a, b) => a - b)[0] ?? null;
 
-  return { support, resistance };
+  console.log(
+    `Pivot diagnostik: total=${pivots.length}, ` +
+    `pivotHigh=${pivots.filter((p) => p.type === "R").length}, ` +
+    `pivotLow=${pivots.filter((p) => p.type === "S").length}, ` +
+    `kelompokResistance=${resistanceLevels.length}, ` +
+    `kelompokSupport=${supportLevels.length}, ` +
+    `harga=${price.toFixed(3)}, ` +
+    `toleransi=${tolerance.toFixed(3)}`
+  );
+
+  return {
+    support,
+    resistance,
+    supportLevels,
+    resistanceLevels,
+    tolerance
+  };
 }
 
 function scanTimeframe(tf, candles) {
   const atr = calculateATR(candles);
-
   if (!atr || !Number.isFinite(atr)) return [];
 
   const last = candles[candles.length - 1];
   const previous = candles[candles.length - 2];
   const zones = findZones(candles, atr, last.c);
-const tolerance = Math.max(atr * 0.20, last.c * 0.00015);
-const events = [];
+  const tolerance = zones.tolerance;
+  const events = [];
 
-console.log(
-  `${tf} detail: ` +
-  `close=${last.c.toFixed(3)}, ` +
-  `ATR=${atr.toFixed(3)}, ` +
-  `support=${zones.support === null ? "TIDAK DITEMUKAN" : zones.support.toFixed(3)}, ` +
-  `resistance=${zones.resistance === null ? "TIDAK DITEMUKAN" : zones.resistance.toFixed(3)}, ` +
-  `tolerance=${tolerance.toFixed(3)}`
-);
+  console.log(
+    `${tf} detail: close=${last.c.toFixed(3)}, ` +
+    `ATR=${atr.toFixed(3)}, ` +
+    `support=${zones.support === null ? "TIDAK DITEMUKAN" : zones.support.toFixed(3)}, ` +
+    `resistance=${zones.resistance === null ? "TIDAK DITEMUKAN" : zones.resistance.toFixed(3)}, ` +
+    `jumlahLevelSupport=${zones.supportLevels.length}, ` +
+    `jumlahLevelResistance=${zones.resistanceLevels.length}, ` +
+    `tolerance=${tolerance.toFixed(3)}`
+  );
 
+  // BREAKOUT BUY: candle tertutup menembus resistance dari bawah.
+  for (const level of zones.resistanceLevels) {
+    if (previous.c <= level && last.c > level) {
+      events.push({
+        tf,
+        type: "BREAKOUT",
+        side: "BUY",
+        zone: "RESISTANCE",
+        level,
+        candle: last.t,
+        close: last.c
+      });
+    }
+  }
+
+  // BREAKOUT SELL: candle tertutup menembus support dari atas.
+  for (const level of zones.supportLevels) {
+    if (previous.c >= level && last.c < level) {
+      events.push({
+        tf,
+        type: "BREAKOUT",
+        side: "SELL",
+        zone: "SUPPORT",
+        level,
+        candle: last.t,
+        close: last.c
+      });
+    }
+  }
+
+  // HOLD BUY: harga menyentuh support dan ditutup kembali di atasnya.
   if (zones.support !== null) {
     const level = zones.support;
 
-    if (previous.c >= level && last.c < level) {
-      events.push({
-        tf, type: "BREAKOUT", side: "SELL",
-        zone: "SUPPORT", level, candle: last.t, close: last.c
-      });
-    } else if (
+    if (
       last.l <= level + tolerance &&
       last.l >= level - tolerance &&
       last.c > level + tolerance &&
       last.c > last.o
     ) {
       events.push({
-        tf, type: "HOLD", side: "BUY",
-        zone: "DEMAND", level, candle: last.t, close: last.c
+        tf,
+        type: "HOLD",
+        side: "BUY",
+        zone: "DEMAND",
+        level,
+        candle: last.t,
+        close: last.c
       });
     }
   }
 
+  // HOLD SELL: harga menyentuh resistance dan ditutup kembali di bawahnya.
   if (zones.resistance !== null) {
     const level = zones.resistance;
 
-    if (previous.c <= level && last.c > level) {
-      events.push({
-        tf, type: "BREAKOUT", side: "BUY",
-        zone: "RESISTANCE", level, candle: last.t, close: last.c
-      });
-    } else if (
+    if (
       last.h >= level - tolerance &&
       last.h <= level + tolerance &&
       last.c < level - tolerance &&
       last.c < last.o
     ) {
       events.push({
-        tf, type: "HOLD", side: "SELL",
-        zone: "SUPPLY", level, candle: last.t, close: last.c
+        tf,
+        type: "HOLD",
+        side: "SELL",
+        zone: "SUPPLY",
+        level,
+        candle: last.t,
+        close: last.c
       });
     }
   }
 
-  return events;
+  // Hilangkan event identik pada candle dan level yang sama.
+  const uniqueEvents = new Map();
+
+  for (const event of events) {
+    const key = [
+      event.tf,
+      event.type,
+      event.side,
+      event.zone,
+      event.candle,
+      event.level.toFixed(3)
+    ].join("|");
+
+    uniqueEvents.set(key, event);
+  }
+
+  return [...uniqueEvents.values()];
 }
 
 async function getFirebaseAccessToken() {
@@ -270,7 +326,10 @@ async function getFirebaseAccessToken() {
   const client = await auth.getClient();
   const result = await client.getAccessToken();
 
-  if (!result.token) throw new Error("Gagal memperoleh token Firebase.");
+  if (!result.token) {
+    throw new Error("Gagal memperoleh token Firebase.");
+  }
+
   return result.token;
 }
 
@@ -309,7 +368,9 @@ async function sendNotification(event, accessToken) {
   );
 
   if (!response.ok) {
-    throw new Error(`Firebase HTTP ${response.status}: ${await response.text()}`);
+    throw new Error(
+      `Firebase HTTP ${response.status}: ${await response.text()}`
+    );
   }
 }
 
@@ -321,15 +382,21 @@ async function main() {
     const candles = await getCandles(tf.interval, tf.minutes);
     const events = scanTimeframe(tf.name, candles);
 
-    console.log(`${tf.name}: ${candles.length} candle tertutup; ${events.length} kandidat.`);
+    console.log(
+      `${tf.name}: ${candles.length} candle tertutup; ${events.length} kandidat.`
+    );
 
     for (const event of events) {
       const key = [
-        event.tf, event.type, event.side, event.zone, event.candle
+        event.tf,
+        event.type,
+        event.side,
+        event.zone,
+        event.candle,
+        event.level.toFixed(3)
       ].join("|");
 
       if (state.sent[key]) continue;
-
       found.push({ key, event });
     }
   }
@@ -344,9 +411,8 @@ async function main() {
     }
   }
 
-  // Batasi catatan yang disimpan agar tidak terus membesar.
   const entries = Object.entries(state.sent)
-    .sort((a, b) => a[1].localeCompare(b[1]))
+    .sort((a, b) => String(a[1]).localeCompare(String(b[1])))
     .slice(-1000);
 
   state.sent = Object.fromEntries(entries);
