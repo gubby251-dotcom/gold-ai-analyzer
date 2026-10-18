@@ -95,25 +95,43 @@ function setTradingViewChart(){
 }
 async function loadData(){
  $("refreshBtn").disabled=true;setConnection(false,"MENGAMBIL DATA");
+ let candleOK=false;
  try{
   const url=`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD/ohlc?interval=${encodeURIComponent(biquoteIntervals[timeframe])}&limit=180`;
   const res=await fetch(url,{cache:"no-store"});if(!res.ok)throw new Error("BiQuote OHLC HTTP "+res.status);
   const data=await res.json();const bars=Array.isArray(data.bars)?data.bars:(Array.isArray(data.candles)?data.candles:[]);
-  candles=bars.map(c=>({t:c.openTime||c.time||c.timestamp,o:Number(c.open),h:Number(c.high),l:Number(c.low),c:Number(c.close)})).filter(c=>[c.o,c.h,c.l,c.c].every(Number.isFinite)).reverse();
-  if(candles.length<25)throw new Error("Data candle BiQuote kurang dari 25 bar");
-  await loadLiveQuote();setConnection(true,"BIQUOTE LIVE");$("chartStatus").textContent=`Chart TradingView OANDA · Analisa BiQuote ${candles.length} candle · ${timeframe}`;
-  $("lastUpdate").textContent=new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
+  const parsed=bars.map(c=>({t:c.openTime||c.time||c.timestamp,o:Number(c.open),h:Number(c.high),l:Number(c.low),c:Number(c.close),isOpen:c.isOpen===true})).filter(c=>[c.o,c.h,c.l,c.c].every(Number.isFinite)).reverse();
+  candles=parsed.filter(c=>!c.isOpen);
+  if(candles.length<25)throw new Error("Candle tertutup BiQuote kurang dari 25 bar");
+  candleOK=true;
   const day=candles.slice(-Math.min(candles.length,288));$("dayHigh").textContent=fmt(Math.max(...day.map(x=>x.h)));$("dayLow").textContent=fmt(Math.min(...day.map(x=>x.l)));
-  $("tfLabel").textContent=timeframe;message("Chart ditampilkan dari TradingView simbol OANDA:XAUUSD. Harga live dan perhitungan indikator menggunakan feed BiQuote; selisih harga antar-sumber mungkin terjadi.");analyze();
- }catch(e){setConnection(false,"FEED GAGAL");message("Belum berhasil mengambil data BiQuote: "+e.message+". Coba Perbarui Data lagi; jika berulang, feed mungkin sedang tidak tersedia.");$("chartStatus").textContent="Data BiQuote belum tersedia";}
- finally{$("refreshBtn").disabled=false;}
+  $("tfLabel").textContent=timeframe;$("chartStatus").textContent=`Chart TradingView OANDA · Analisa BiQuote ${candles.length} candle tertutup · ${timeframe}`;
+  $("lastUpdate").textContent=new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
+  analyze();
+  try{
+   await loadLiveQuote();setConnection(true,"CANDLE + HARGA VALID");
+   message("Candle tertutup BiQuote berhasil dimuat. Harga live hanya ditampilkan bila kutipan terbaru valid. Chart memakai TradingView OANDA:XAUUSD; sumber berbeda dapat menghasilkan selisih harga.");
+  }catch(qe){
+   setConnection(false,"HARGA LIVE TIDAK TERSEDIA");
+   $("priceChange").textContent="Harga live belum tervalidasi; jangan gunakan harga lama sebagai harga sekarang.";
+   message("Data candle berhasil dimuat dan indikator dihitung, tetapi harga live BiQuote gagal atau sudah kedaluwarsa. Analisa belum boleh dianggap sinyal live. Coba Perbarui Data lagi atau tunggu feed pulih.");
+  }
+ }catch(e){
+  setConnection(false,"CANDLE GAGAL");
+  message("Data candle BiQuote belum berhasil dimuat: "+e.message+". Periksa koneksi internet atau tunggu layanan feed pulih.");
+  $("chartStatus").textContent="Data candle BiQuote belum tersedia";
+ }finally{$("refreshBtn").disabled=false;}
 }
 async function loadLiveQuote(){
- const res=await fetch(`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD`,{cache:"no-store"});if(!res.ok)throw new Error("BiQuote live quote HTTP "+res.status);
+ const res=await fetch(`${CONFIG.BIQUOTE_BASE_URL}/XAUUSD?allowStale=false`,{cache:"no-store"});if(!res.ok)throw new Error("BiQuote live quote HTTP "+res.status);
  const q=await res.json();const price=Number(q.mid);if(!Number.isFinite(price)||price<=0)throw new Error("Harga mid BiQuote tidak valid");
+ const age=Number(q.quoteAgeSeconds);const stamped=q.timestamp?Date.parse(q.timestamp):NaN;
+ if(q.stale===true||(Number.isFinite(age)&&age>300)||(Number.isFinite(stamped)&&Date.now()-stamped>300000))throw new Error("Kutipan BiQuote lebih dari 5 menit");
  $("lastPrice").textContent=fmt(price);$("levelPrice").textContent=fmt(price);
- if(q.marketState==="closed"||q.stale){$("priceChange").textContent=`Pasar tutup / harga terakhir · BiQuote · ${q.quoteAgeSeconds??"?"} detik`; }else if(previousClose===null){$("priceChange").textContent=`BiQuote LIVE · mid ${fmt(price)}`;}else{$("priceChange").textContent=`${price>=previousClose?"▲":"▼"} ${fmt(price-previousClose)} sejak pembaruan sebelumnya · BiQuote LIVE`;}
- previousClose=price; if(Number.isFinite(Number(q.high)))$("dayHigh").textContent=fmt(Number(q.high));if(Number.isFinite(Number(q.low)))$("dayLow").textContent=fmt(Number(q.low));
+ if(q.marketState==="closed"){$("priceChange").textContent="Pasar tutup · harga terakhir, bukan harga live";}
+ else if(previousClose===null){$("priceChange").textContent=`BiQuote LIVE · mid ${fmt(price)}`;}
+ else{$("priceChange").textContent=`${price>=previousClose?"▲":"▼"} ${fmt(price-previousClose)} sejak pembaruan sebelumnya · BiQuote LIVE`;}
+ previousClose=price;if(Number.isFinite(Number(q.high)))$("dayHigh").textContent=fmt(Number(q.high));if(Number.isFinite(Number(q.low)))$("dayLow").textContent=fmt(Number(q.low));
  $("lastUpdate").textContent=new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
 }
 function ema(vals,period){if(vals.length<period)return null;let k=2/(period+1),v=vals.slice(0,period).reduce((a,b)=>a+b,0)/period;for(let i=period;i<vals.length;i++)v=vals[i]*k+v*(1-k);return v;}
@@ -140,6 +158,6 @@ $("imageInput").addEventListener("change",e=>{const f=e.target.files?.[0];if(!f)
 $("clearImage").addEventListener("click",()=>{$("imageInput").value="";$("imagePreview").removeAttribute("src");$("imagePreview").style.display="none";$("imageText").textContent="Pilih screenshot chart untuk pratinjau. Analisa AI gambar membutuhkan endpoint AI terpisah; gambar tidak dikirim ke mana pun oleh halaman ini.";});
 $("clearHistory").addEventListener("click",()=>{historyItems=[];renderHistory();});
 document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x===b));const target=b.dataset.nav;if(target==="chart")document.querySelector(".chartwrap").scrollIntoView({behavior:"smooth",block:"center"});if(target==="analysis")document.querySelector("#biasTitle").scrollIntoView({behavior:"smooth",block:"center"});if(target==="history")document.querySelector("#history").scrollIntoView({behavior:"smooth",block:"center"});if(target==="settings")message("Setelan: chart memakai TradingView OANDA:XAUUSD; harga live dan indikator memakai BiQuote API publik. Tidak perlu token OANDA atau Worker untuk rancangan ini.");if(target==="overview")window.scrollTo({top:0,behavior:"smooth"});}));
-setTradingViewChart();loadData();quoteTimer=setInterval(()=>loadLiveQuote().catch(()=>setConnection(false,"BIQUOTE TERPUTUS")),CONFIG.LIVE_POLL_MS);candleTimer=setInterval(()=>loadData(),CONFIG.CANDLE_REFRESH_MS);
+setTradingViewChart();loadData();quoteTimer=setInterval(()=>loadLiveQuote().catch(()=>{setConnection(false,"HARGA LIVE TIDAK TERSEDIA");$("priceChange").textContent="Harga live tidak tersedia atau kedaluwarsa; harga terakhir tidak dianggap live.";}),CONFIG.LIVE_POLL_MS);candleTimer=setInterval(()=>loadData(),CONFIG.CANDLE_REFRESH_MS);
 </script>
 </body></html>
