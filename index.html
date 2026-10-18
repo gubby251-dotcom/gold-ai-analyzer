@@ -71,25 +71,25 @@ button,input,select{font:inherit}button{cursor:pointer}.app{max-width:1180px;mar
  </aside>
 </div>
 <section class="panel section" id="newsSection">
- <div class="panelhead"><div><div class="paneltitle">NEWS & ANALISA FUNDAMENTAL XAU/USD</div><div class="subtle">Kalender ekonomi dan berita pasar · data dari TradingView</div></div><span class="tag">USD · HIGH IMPACT</span></div>
+ <div class="panelhead"><div><div class="paneltitle">NEWS & ANALISA FUNDAMENTAL XAU/USD</div><div class="subtle">Fokus data ekonomi AS dan berita terkait US Dollar · data dari TradingView</div></div><span class="tag">USD · SEMUA DAMPAK</span></div>
  <div class="twocol">
   <div class="mini" style="min-width:0">
    <div class="paneltitle" style="margin-bottom:8px">KALENDER EKONOMI USD</div>
-   <div class="subtle" style="margin-bottom:10px">Pantau rilis seperti CPI, PCE, NFP, FOMC, suku bunga, dan klaim pengangguran. Waktu dan data aktual ditampilkan oleh widget pihak ketiga.</div>
+   <div class="subtle" style="margin-bottom:10px">Menampilkan agenda ekonomi Amerika Serikat (USD) pada semua tingkat dampak—rendah, sedang, dan tinggi. Periksa waktu rilis, Actual, Forecast, dan Previous jika tersedia.</div>
    <div class="tradingview-widget-container" style="width:100%;min-width:0">
     <div class="tradingview-widget-container__widget"></div>
     <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
-    {"colorTheme":"dark","isTransparent":true,"locale":"en","countryFilter":"us","importanceFilter":"1","width":"100%","height":460}
+    {"colorTheme":"dark","isTransparent":true,"locale":"en","countryFilter":"us","width":"100%","height":460}
     </script>
    </div>
   </div>
   <div class="mini" style="min-width:0">
    <div class="paneltitle" style="margin-bottom:8px">BERITA PASAR TERKINI</div>
-   <div class="subtle" style="margin-bottom:10px">Feed berita pasar dari TradingView. Baca waktu publikasi dan sumber berita sebelum mengambil keputusan.</div>
+   <div class="subtle" style="margin-bottom:10px">Feed berita terkait indeks US Dollar (DXY) dari TradingView sebagai fokus berita USD. Periksa penerbit, waktu publikasi, dan isi berita; feed ini bukan jaminan semua berita khusus USD akan tercakup.</div>
    <div class="tradingview-widget-container" style="width:100%;min-width:0">
     <div class="tradingview-widget-container__widget"></div>
     <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>
-    {"feedMode":"market","market":"forex","colorTheme":"dark","isTransparent":true,"displayMode":"regular","width":"100%","height":460,"locale":"en"}
+    {"feedMode":"symbol","symbol":"TVC:DXY","colorTheme":"dark","isTransparent":true,"displayMode":"regular","width":"100%","height":460,"locale":"en"}
     </script>
    </div>
   </div>
@@ -98,14 +98,14 @@ button,input,select{font:inherit}button{cursor:pointer}.app{max-width:1180px;mar
   <div class="paneltitle" style="margin-bottom:8px">PANDUAN ANALISA DAMPAK NEWS PADA EMAS</div>
   <div class="scenario"><i class="bullet" style="background:var(--gold)"></i><div><strong>USD menguat / imbal hasil obligasi naik</strong><p>Biasnya dapat menekan emas, tetapi reaksi tetap bergantung pada ekspektasi pasar dan kondisi risiko.</p></div></div>
   <div class="scenario"><i class="bullet" style="background:var(--green)"></i><div><strong>USD melemah / imbal hasil turun</strong><p>Biasnya dapat mendukung emas, tetapi bukan jaminan harga akan naik.</p></div></div>
-  <div class="scenario"><i class="bullet" style="background:var(--red)"></i><div><strong>Rilis berdampak tinggi</strong><p>Bandingkan Actual dengan Forecast dan Previous. Volatilitas serta spread bisa meningkat; hindari menganggap arah news sebagai sinyal entry otomatis.</p></div></div>
-  <div class="notice">Catatan: kalender dan berita dimuat dari TradingView melalui internet. Panel ini belum menghasilkan interpretasi AI otomatis per berita; konfirmasi dampak aktual terhadap XAU/USD dengan pergerakan harga, USD, dan yield sebelum trading.</div>
+  <div class="scenario"><i class="bullet" style="background:var(--red)"></i><div><strong>Berita berdampak rendah, sedang, dan tinggi</strong><p>Bandingkan Actual dengan Forecast dan Previous. Volatilitas serta spread bisa meningkat; hindari menganggap arah news sebagai sinyal entry otomatis.</p></div></div>
+  <div class="notice">Catatan: kalender difilter ke Amerika Serikat (USD) dan mencakup semua tingkat dampak yang tersedia; feed berita menggunakan DXY sebagai fokus terkait US Dollar. Keduanya dimuat dari TradingView melalui internet, sehingga cakupan berita bergantung pada widget dan sumbernya. Panel ini belum menghasilkan interpretasi AI otomatis per berita; konfirmasi dampak terhadap XAU/USD melalui pergerakan harga dan yield sebelum trading.</div>
  </div>
 </section>
 <section class="panel section"><div class="panelhead"><div class="paneltitle">RIWAYAT ANALISA</div><button class="btn" id="clearHistory">Bersihkan</button></div><div id="history" class="subtle">Belum ada analisa yang disimpan.</div></section>
 <div class="foot">SEBU DOLLAR ANALYZER · XAU/USD · Data feed BiQuote dan berita/kalender TradingView.</div>
 </div>
-<nav class="bottom"><div class="nav"><button class="active" data-nav="overview"><span>⌂</span>Overview</button><button data-nav="chart"><span>▥</span>Chart</button><button data-nav="analysis"><span>⌁</span>Analisa</button><button data-nav="history"><span>◷</span>Riwayat</button><button data-nav="settings"><span>⚙</span>Setelan</button></div></nav>
+<nav class="bottom"><div class="nav"><button class="active" data-nav="overview"><span>⌂</span>Overview</button><button data-nav="chart"><span>▥</span>Chart</button><button data-nav="analysis"><span>⌁</span>Analisa</button><button data-nav="news"><span>▤</span>News</button><button data-nav="history"><span>◷</span>Riwayat</button><button data-nav="settings"><span>⚙</span>Setelan</button></div></nav>
 <script>
 /* Set to your deployed Worker URL. Never put the OANDA token in this public HTML. */
 const CONFIG = { BIQUOTE_BASE_URL: "https://biquote.io/api", LIVE_POLL_MS: 15000, CANDLE_REFRESH_MS: 60000 };
@@ -230,7 +230,7 @@ $("refreshBtn").addEventListener("click",loadData);$("analyzeBtn").addEventListe
 $("imageInput").addEventListener("change",e=>{const f=e.target.files?.[0];if(!f)return;if(!f.type.startsWith("image/"))return;const u=URL.createObjectURL(f);$("imagePreview").src=u;$("imagePreview").style.display="block";$("imageText").textContent="Screenshot hanya ditampilkan lokal. Untuk AI vision, sambungkan endpoint AI backend yang aman.";});
 $("clearImage").addEventListener("click",()=>{$("imageInput").value="";$("imagePreview").removeAttribute("src");$("imagePreview").style.display="none";$("imageText").textContent="Pilih screenshot chart untuk pratinjau. Analisa AI gambar membutuhkan endpoint AI terpisah; gambar tidak dikirim ke mana pun oleh halaman ini.";});
 $("clearHistory").addEventListener("click",()=>{historyItems=[];renderHistory();});
-document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x===b));const target=b.dataset.nav;if(target==="chart")document.querySelector(".chartwrap").scrollIntoView({behavior:"smooth",block:"center"});if(target==="analysis")document.querySelector("#biasTitle").scrollIntoView({behavior:"smooth",block:"center"});if(target==="history")document.querySelector("#history").scrollIntoView({behavior:"smooth",block:"center"});if(target==="settings")message("Setelan: chart memakai TradingView OANDA:XAUUSD; harga live dan indikator memakai BiQuote API publik. Tidak perlu token OANDA atau Worker untuk rancangan ini.");if(target==="overview")window.scrollTo({top:0,behavior:"smooth"});}));
+document.querySelectorAll("[data-nav]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x===b));const target=b.dataset.nav;if(target==="chart")document.querySelector(".chartwrap").scrollIntoView({behavior:"smooth",block:"center"});if(target==="analysis")document.querySelector("#biasTitle").scrollIntoView({behavior:"smooth",block:"center"});if(target==="news")document.querySelector("#newsSection").scrollIntoView({behavior:"smooth",block:"start"});if(target==="history")document.querySelector("#history").scrollIntoView({behavior:"smooth",block:"center"});if(target==="settings")message("Setelan: chart memakai TradingView OANDA:XAUUSD; harga live dan indikator memakai BiQuote API publik. Tidak perlu token OANDA atau Worker untuk rancangan ini.");if(target==="overview")window.scrollTo({top:0,behavior:"smooth"});}));
 setTradingViewChart();loadData();quoteTimer=setInterval(()=>loadLiveQuote().catch(async()=>{const closed=await tryClosedStatus();if(!closed){setConnection(false,"HARGA LIVE TIDAK TERSEDIA");setMarketState("FEED ERROR","Harga live tidak tersedia/kedaluwarsa; harga terakhir bukan harga live.");}}),CONFIG.LIVE_POLL_MS);candleTimer=setInterval(()=>loadData(),CONFIG.CANDLE_REFRESH_MS);
 </script>
 </body></html>
