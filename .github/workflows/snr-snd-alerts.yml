@@ -3,6 +3,8 @@ name: SNR SND Alerts
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [snr-snd-schedule]
   schedule:
     - cron: "*/5 * * * *"
 
