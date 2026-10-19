@@ -182,6 +182,7 @@ jobs:
           package com.sebudollar.analyzer;
 
           import android.app.Activity;
+          import android.app.Dialog;
           import android.os.Bundle;
           import android.content.Intent;
           import android.net.Uri;
@@ -190,6 +191,8 @@ jobs:
           import android.webkit.WebChromeClient;
           import android.webkit.WebSettings;
           import android.webkit.CookieManager;
+          import android.os.Message;
+          import android.widget.FrameLayout;
           import android.webkit.ValueCallback;
           import android.webkit.PermissionRequest;
           import android.graphics.Color;
@@ -215,6 +218,7 @@ jobs:
                   WebSettings settings = webView.getSettings();
                   settings.setJavaScriptEnabled(true);
                   settings.setJavaScriptCanOpenWindowsAutomatically(true);
+                  settings.setSupportMultipleWindows(true);
                   settings.setDomStorageEnabled(true);
                   settings.setDatabaseEnabled(true);
                   settings.setLoadsImagesAutomatically(true);
@@ -224,14 +228,68 @@ jobs:
                       WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                   );
 
-                  // Keep login cookies available in the Android WebView.
-                  CookieManager cookieManager = CookieManager.getInstance();
-                  cookieManager.setAcceptCookie(true);
-                  cookieManager.setAcceptThirdPartyCookies(webView, true);
+                  CookieManager cookies = CookieManager.getInstance();
+                  cookies.setAcceptCookie(true);
+                  cookies.setAcceptThirdPartyCookies(webView, true);
 
                   webView.setWebViewClient(new WebViewClient());
 
                   webView.setWebChromeClient(new WebChromeClient() {
+                      private Dialog authDialog;
+                      private WebView authWebView;
+
+                      @Override
+                      public boolean onCreateWindow(
+                          WebView view, boolean isDialog, boolean isUserGesture,
+                          Message resultMsg
+                      ) {
+                          runOnUiThread(() -> {
+                              if (authDialog != null && authDialog.isShowing()) {
+                                  authDialog.dismiss();
+                              }
+                              authWebView = new WebView(MainActivity.this);
+                              WebSettings popupSettings = authWebView.getSettings();
+                              popupSettings.setJavaScriptEnabled(true);
+                              popupSettings.setDomStorageEnabled(true);
+                              popupSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+                              popupSettings.setSupportMultipleWindows(true);
+                              CookieManager.getInstance().setAcceptCookie(true);
+                              CookieManager.getInstance().setAcceptThirdPartyCookies(authWebView, true);
+                              authWebView.setWebViewClient(new WebViewClient());
+                              authWebView.setWebChromeClient(new WebChromeClient() {
+                                  @Override
+                                  public void onCloseWindow(WebView window) {
+                                      if (authDialog != null) authDialog.dismiss();
+                                      authWebView = null;
+                                      authDialog = null;
+                                  }
+                              });
+                              authDialog = new Dialog(MainActivity.this);
+                              authDialog.setContentView(authWebView);
+                              authDialog.getWindow().setLayout(
+                                  FrameLayout.LayoutParams.MATCH_PARENT,
+                                  FrameLayout.LayoutParams.MATCH_PARENT
+                              );
+                              authDialog.setOnDismissListener(d -> {
+                                  if (authWebView != null) {
+                                      authWebView.destroy();
+                                      authWebView = null;
+                                  }
+                                  authDialog = null;
+                              });
+                              authDialog.show();
+                              authDialog.getWindow().setLayout(
+                                  FrameLayout.LayoutParams.MATCH_PARENT,
+                                  FrameLayout.LayoutParams.MATCH_PARENT
+                              );
+                              WebView.WebViewTransport transport =
+                                  (WebView.WebViewTransport) resultMsg.obj;
+                              transport.setWebView(authWebView);
+                              resultMsg.sendToTarget();
+                          });
+                          return true;
+                      }
+
                       @Override
                       public boolean onShowFileChooser(
                           WebView view,
