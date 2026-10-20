@@ -136,6 +136,10 @@ jobs:
           }
           EOF_ROOT
 
+          cat > gradle.properties <<'EOF_GRADLE_PROPERTIES'
+          android.useAndroidX=true
+          EOF_GRADLE_PROPERTIES
+
           cat > app/build.gradle <<'EOF_APP'
           plugins {
               id 'com.android.application'
